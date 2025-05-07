@@ -94,7 +94,7 @@ type ReconstructionOptions = {
 
 export const reconstructParagraphs = (
     observations: Observation[],
-    { verticalJumpFactor = 2, widthTolerance = 0.9 }: ReconstructionOptions = {},
+    { verticalJumpFactor = 2, widthTolerance = 0.85 }: ReconstructionOptions = {},
 ) => {
     const maxWidth = Math.max(...observations.map((o) => o.bbox.width));
     const thresholdWidth = maxWidth * widthTolerance;
@@ -105,8 +105,6 @@ export const reconstructParagraphs = (
     for (let i = 0; i < observations.length; i++) {
         const o = observations[i];
         const text = o.text.trim();
-
-        //console.log('text', text, o.bbox);
 
         const currentY = o.bbox.y;
 
