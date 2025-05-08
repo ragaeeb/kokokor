@@ -1,18 +1,17 @@
 import type { Observation } from '@/types';
 
-import { markObservationsWithLineNumber } from './sorting';
+import { markObservationsWithIndex } from './sorting';
 
-export function groupObservationsByLines(
-    observations: Observation[],
-    dpi: number,
-    pixelTolerance = 5,
-): Observation[][] {
-    const marked = markObservationsWithLineNumber(observations, dpi, pixelTolerance);
+export const groupObservationsByIndex = (observations: Observation[], dpi: number, pixelTolerance = 5) => {
+    const marked = markObservationsWithIndex(observations, dpi, pixelTolerance);
     const groups: Observation[][] = [];
 
     for (const m of marked) {
-        if (!groups[m.line]) groups[m.line] = [];
-        groups[m.line].push({ bbox: m.bbox, text: m.text });
+        if (!groups[m.index]) {
+            groups[m.index] = [];
+        }
+
+        groups[m.index].push({ bbox: m.bbox, text: m.text });
     }
 
     for (const group of groups) {
@@ -20,9 +19,9 @@ export function groupObservationsByLines(
     }
 
     return groups;
-}
+};
 
-export const mergeGroupedObservations = (grouped: Observation[][]): Observation[] => {
+export const mergeGroupedObservations = (grouped: Observation[][]) => {
     const flattened = grouped.flatMap((group) => {
         const minX = Math.min(...group.map((o) => o.bbox.x));
         const minY = Math.min(...group.map((o) => o.bbox.y));

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test';
 
-import { groupObservationsByLines, mergeGroupedObservations } from './grouping';
+import { groupObservationsByIndex, mergeGroupedObservations } from './grouping';
 
 describe('grouping', () => {
-    describe('groupObservationsByLines', () => {
+    describe('groupObservationsByIndex', () => {
         it('should group the observations by their closest y-coordinate and sort the observations by their respective x-coordinates', () => {
-            const actual = groupObservationsByLines(
+            const actual = groupObservationsByIndex(
                 [
                     {
                         bbox: {

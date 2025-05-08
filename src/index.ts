@@ -1,6 +1,6 @@
 import type { Observation, OcrResult } from './types';
 
-import { groupObservationsByLines, mergeGroupedObservations } from './utils/grouping';
+import { groupObservationsByIndex, mergeGroupedObservations } from './utils/grouping';
 import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
 
 type ReconstructionOptions = {
@@ -76,7 +76,7 @@ export const rebuildTextFromOCR = (ocr: OcrResult) => {
 
     const observations = mapOcrResultToRTLObservations(ocr.observations, ocr.dpi.width);
     const normalized = normalizeObservationsX(observations, ocr.dpi.x || 72);
-    const groups = groupObservationsByLines(normalized, ocr.dpi.y || 72);
+    const groups = groupObservationsByIndex(normalized, ocr.dpi.y || 72);
     const merged = mergeGroupedObservations(groups);
 
     const paragraphs = reconstructParagraphs(merged);

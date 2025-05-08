@@ -1,7 +1,7 @@
 import type { Observation } from '@/types';
 
 type MarkedObservation = Observation & {
-    line: number;
+    index: number;
 };
 
 /**
@@ -14,7 +14,7 @@ type MarkedObservation = Observation & {
  * @param dpi            image DPI (defaults to 72)
  * @param pixelTolerance extra vertical slack in “pixels at 72dpi”
  */
-export const markObservationsWithLineNumber = (
+export const markObservationsWithIndex = (
     observations: Observation[],
     dpi: number,
     pixelTolerance: number,
@@ -29,7 +29,7 @@ export const markObservationsWithLineNumber = (
     let currentLine = 0;
     let prev = byY[0];
 
-    marked.push({ ...prev, line: currentLine });
+    marked.push({ ...prev, index: currentLine });
 
     for (let i = 1; i < byY.length; i++) {
         const obs = byY[i];
@@ -43,10 +43,10 @@ export const markObservationsWithLineNumber = (
             currentLine += 1;
         }
 
-        marked.push({ ...obs, line: currentLine });
+        marked.push({ ...obs, index: currentLine });
         prev = obs;
     }
 
     // finally, ensure grouped by line then y
-    return marked.sort((a, b) => (a.line !== b.line ? a.line - b.line : a.bbox.y - b.bbox.y));
+    return marked.sort((a, b) => (a.index !== b.index ? a.index - b.index : a.bbox.y - b.bbox.y));
 };
