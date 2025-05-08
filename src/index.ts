@@ -67,10 +67,25 @@ export const rebuildTextFromOCR = (ocr: OcrResult) => {
     let groups = groupObservationsByIndex(marked, { dpi: dpiY, sortHorizontally: true });
     let merged = mergeGroupedObservations(groups);
 
-    console.log('merged', merged);
     marked = markObservationsWithParagraph(merged);
     groups = groupObservationsByIndex(marked, { dpi: dpiY });
     merged = mergeGroupedObservations(groups);
+
+    const footerLine = ocr.horizontalLines?.at(-1);
+
+    if (footerLine) {
+        const insertAfter = merged.findLastIndex((o) => o.bbox.y < footerLine.y);
+        const footerObservation = {
+            bbox: footerLine,
+            text: '___',
+        };
+
+        if (insertAfter === -1) {
+            merged.unshift(footerObservation);
+        } else {
+            merged.splice(insertAfter + 1, 0, footerObservation);
+        }
+    }
 
     return merged.map((o) => o.text).join('\n');
 };
