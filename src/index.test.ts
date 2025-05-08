@@ -1,41 +1,63 @@
 import { describe, expect, it } from 'bun:test';
 import path from 'node:path';
 
-import {
-    mapOcrResultToRTLObservations,
-    normalizeObservationsX,
-    normalizeObservationsY,
-    realignSplitLines,
-    reconstructParagraphs,
-} from './index';
+import type { Observation, OcrResult } from './types';
+
+import { rebuildTextFromOCR } from './index';
+
+const WRITE_RESULT = false;
+
+type Metadata = {
+    horizontal_lines: { height: number; width: number; x: number; y: number }[];
+    image_info: { dpi_x: number; dpi_y: number };
+};
+
+type OcrTestResults = { height: number; observations: Observation[]; width: number };
+
+const loadOCRData = async (...only: string[]) => {
+    const fileToTestData: Record<string, OcrTestResults> = await Bun.file(
+        path.join('test', 'mixed', 'ocr.json'),
+    ).json();
+    const structures: Record<string, Metadata> = await Bun.file(path.join('test', 'mixed', 'structures.json')).json();
+    const fileToData: Record<string, OcrResult> = {};
+
+    Object.entries(fileToTestData).forEach(([imageFile, ocrResult]) => {
+        if (only.length === 0 || only.includes(imageFile)) {
+            const structure = structures[imageFile];
+
+            fileToData[imageFile] = {
+                dpi: {
+                    height: ocrResult.height,
+                    width: ocrResult.width,
+                    x: structure.image_info.dpi_x,
+                    y: structure.image_info.dpi_y,
+                },
+                horizontalLines: structure.horizontal_lines,
+                observations: ocrResult.observations,
+            };
+        }
+    });
+
+    return fileToData;
+};
 
 describe('index', () => {
-    describe('mapOcrResultToRTLObservations', () => {
-        it('should correct the x-coordinates to be from the right', () => {
-            const actual = mapOcrResultToRTLObservations({
-                height: 100,
-                observations: [{ bbox: { height: 1, width: 50, x: 0, y: 0 }, text: 'Ewwo' }],
-                width: 100,
-            });
+    describe('rebuildTextFromOCR', async () => {
+        const testData = await loadOCRData();
 
-            expect(actual).toEqual([{ bbox: { height: 1, width: 50, x: 50, y: 0 }, text: 'Ewwo' }]);
-        });
+        it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
+            const ocrData = testData[imageFile];
+            const actual = rebuildTextFromOCR(ocrData);
 
-        it.only('should handle real data', async () => {
-            const [ocrData, structures] = await Promise.all([
-                Bun.file(path.join('test', 'mixed', 'ocr.json')).json(),
-                Bun.file(path.join('test', 'mixed', 'structures.json')).json(),
-            ]);
+            const parsedFile = path.parse(path.join('test', 'mixed', imageFile));
+            const expectationFile = Bun.file(path.format({ dir: parsedFile.dir, ext: '.txt', name: parsedFile.name }));
 
-            const imageFile = '14.jpg';
-            const result = mapOcrResultToRTLObservations(ocrData[imageFile]);
-            const normalized = normalizeObservationsX(result, structures[imageFile].image_info.dpi_x);
-            const normalizedY = normalizeObservationsY(normalized, structures[imageFile].image_info.dpi_x);
-            const realigned = realignSplitLines(normalizedY, structures[imageFile].image_info.dpi_y);
+            if (WRITE_RESULT) {
+                await expectationFile.write(actual);
+            }
 
-            const actual = reconstructParagraphs(realigned);
-
-            await Bun.file('output.txt').write(actual.join('\n'));
+            const expected = await expectationFile.text();
+            expect(actual).toEqual(expected);
         });
     });
 });

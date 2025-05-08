@@ -4,9 +4,9 @@ export type Observation = {
 };
 
 export type OcrResult = {
-    readonly height: number;
+    readonly dpi: BoundingBox;
+    readonly horizontalLines?: BoundingBox[];
     readonly observations: Observation[];
-    readonly width: number;
 };
 
 type BoundingBox = {
