@@ -1,85 +1,76 @@
-import type { Observation, OcrResult } from './types';
+import type { IndexedObservation, Observation, OcrResult } from './types';
 
 import { groupObservationsByIndex, mergeGroupedObservations } from './utils/grouping';
 import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
+import { markObservationsWithIndex } from './utils/sorting';
 
 type ReconstructionOptions = {
     verticalJumpFactor?: number;
     widthTolerance?: number;
 };
 
-export const reconstructParagraphs = (
+const DEFAULT_DPI = 72;
+
+export function markObservationsWithParagraph(
     observations: Observation[],
     { verticalJumpFactor = 2, widthTolerance = 0.85 }: ReconstructionOptions = {},
-) => {
-    const maxWidth = Math.max(...observations.map((o) => o.bbox.width));
+): IndexedObservation[] {
+    if (observations.length === 0) return [];
+
+    // ensure top→bottom order
+    const byY = observations.slice().sort((a, b) => a.bbox.y - b.bbox.y);
+
+    // precompute width threshold
+    const maxWidth = Math.max(...byY.map((o) => o.bbox.width));
     const thresholdWidth = maxWidth * widthTolerance;
 
-    const paragraphs: string[] = [];
-    let currentParagraph = '';
+    const out: IndexedObservation[] = [];
+    let index = 0;
 
-    for (let i = 0; i < observations.length; i++) {
-        const o = observations[i];
-        const text = o.text.trim();
+    for (let i = 0; i < byY.length; i++) {
+        const o = byY[i];
 
-        const currentY = o.bbox.y;
-
-        let isLargeVerticalGap = false;
-
-        if (i > 0) {
-            const prevY = observations[i - 1].bbox.y;
-            const gap = currentY - prevY;
-
-            if (i > 1) {
-                const prevPrevY = observations[i - 2].bbox.y;
-                const prevGap = prevY - prevPrevY;
-
-                if (gap > prevGap * verticalJumpFactor) {
-                    isLargeVerticalGap = true;
-                }
+        // check for big vertical jump
+        if (i > 1) {
+            const prev = byY[i - 1];
+            const prevPrev = byY[i - 2];
+            const gap = o.bbox.y - prev.bbox.y;
+            const prevGap = prev.bbox.y - prevPrev.bbox.y;
+            if (gap > prevGap * verticalJumpFactor) {
+                index++;
             }
         }
 
-        if (isLargeVerticalGap) {
-            if (currentParagraph.trim()) {
-                paragraphs.push(currentParagraph.trim());
-            }
-            currentParagraph = text;
-        } else {
-            if (currentParagraph) {
-                currentParagraph += ' ';
-            }
-            currentParagraph += text;
-        }
+        // tag this line
+        out.push({ ...o, index });
 
-        const lineWidth = o.bbox.width;
-
-        if (lineWidth < thresholdWidth) {
-            if (currentParagraph.trim()) {
-                paragraphs.push(currentParagraph.trim());
-                currentParagraph = '';
-            }
+        // if it’s a “short” line, bump to new paragraph afterwards
+        if (o.bbox.width < thresholdWidth) {
+            index++;
         }
     }
 
-    if (currentParagraph.trim()) {
-        paragraphs.push(currentParagraph.trim());
-    }
-
-    return paragraphs.filter(Boolean);
-};
+    // final sort by paragraph then y (just to keep stable ordering)
+    return out.toSorted((a, b) => (a.index !== b.index ? a.index - b.index : a.bbox.y - b.bbox.y));
+}
 
 export const rebuildTextFromOCR = (ocr: OcrResult) => {
     if (ocr.observations.length === 0) {
         return '';
     }
 
+    const { x: dpiX = DEFAULT_DPI, y: dpiY = DEFAULT_DPI } = ocr.dpi;
+
     const observations = mapOcrResultToRTLObservations(ocr.observations, ocr.dpi.width);
-    const normalized = normalizeObservationsX(observations, ocr.dpi.x || 72);
-    const groups = groupObservationsByIndex(normalized, { dpi: ocr.dpi.y || 72, sortHorizontally: true });
-    const merged = mergeGroupedObservations(groups);
+    const normalized = normalizeObservationsX(observations, dpiX);
+    let marked = markObservationsWithIndex(normalized, dpiY);
+    let groups = groupObservationsByIndex(marked, { dpi: dpiY, sortHorizontally: true });
+    let merged = mergeGroupedObservations(groups);
 
-    const paragraphs = reconstructParagraphs(merged);
+    console.log('merged', merged);
+    marked = markObservationsWithParagraph(merged);
+    groups = groupObservationsByIndex(marked, { dpi: dpiY });
+    merged = mergeGroupedObservations(groups);
 
-    return paragraphs.join('\n');
+    return merged.map((o) => o.text).join('\n');
 };

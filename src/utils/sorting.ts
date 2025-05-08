@@ -10,7 +10,7 @@ import type { IndexedObservation, Observation } from '@/types';
  * @param dpi            image DPI (defaults to 72)
  * @param pixelTolerance extra vertical slack in “pixels at 72dpi”
  */
-export const markObservationsWithIndex = (observations: Observation[], dpi: number, pixelTolerance: number) => {
+export const markObservationsWithIndex = (observations: Observation[], dpi: number, pixelTolerance = 5) => {
     // how many device‐pixels of slack at this DPI?
     const effectiveYTolerance = pixelTolerance * (dpi / 72);
 

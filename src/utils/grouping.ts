@@ -1,6 +1,4 @@
-import type { Observation } from '@/types';
-
-import { markObservationsWithIndex } from './sorting';
+import type { IndexedObservation, Observation } from '@/types';
 
 type GroupingOptions = {
     dpi: number;
@@ -8,11 +6,7 @@ type GroupingOptions = {
     sortHorizontally?: boolean;
 };
 
-export const groupObservationsByIndex = (
-    observations: Observation[],
-    { dpi, pixelTolerance = 5, sortHorizontally }: GroupingOptions,
-) => {
-    const marked = markObservationsWithIndex(observations, dpi, pixelTolerance);
+export const groupObservationsByIndex = (marked: IndexedObservation[], { sortHorizontally }: GroupingOptions) => {
     const groups: Observation[][] = [];
 
     for (const m of marked) {
