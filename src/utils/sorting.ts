@@ -1,8 +1,4 @@
-import type { Observation } from '@/types';
-
-type MarkedObservation = Observation & {
-    index: number;
-};
+import type { IndexedObservation, Observation } from '@/types';
 
 /**
  * Given an array of observations, sort them by y,
@@ -14,18 +10,14 @@ type MarkedObservation = Observation & {
  * @param dpi            image DPI (defaults to 72)
  * @param pixelTolerance extra vertical slack in “pixels at 72dpi”
  */
-export const markObservationsWithIndex = (
-    observations: Observation[],
-    dpi: number,
-    pixelTolerance: number,
-): MarkedObservation[] => {
+export const markObservationsWithIndex = (observations: Observation[], dpi: number, pixelTolerance: number) => {
     // how many device‐pixels of slack at this DPI?
     const effectiveYTolerance = pixelTolerance * (dpi / 72);
 
     // 1) sort top→bottom by y
     const byY = observations.slice().sort((a, b) => a.bbox.y - b.bbox.y);
 
-    const marked: MarkedObservation[] = [];
+    const marked: IndexedObservation[] = [];
     let currentLine = 0;
     let prev = byY[0];
 

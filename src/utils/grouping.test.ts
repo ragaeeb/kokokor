@@ -80,7 +80,7 @@ describe('grouping', () => {
                         text: 'ويستلم الأركان منهن باليد (١)',
                     },
                 ],
-                72,
+                { dpi: 72, sortHorizontally: true },
             );
 
             expect(actual).toEqual([

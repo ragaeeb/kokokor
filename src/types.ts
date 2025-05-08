@@ -1,3 +1,7 @@
+export type IndexedObservation = Observation & {
+    index: number;
+};
+
 export type Observation = {
     readonly bbox: BoundingBox;
     readonly text: string;

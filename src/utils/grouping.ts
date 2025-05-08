@@ -2,7 +2,16 @@ import type { Observation } from '@/types';
 
 import { markObservationsWithIndex } from './sorting';
 
-export const groupObservationsByIndex = (observations: Observation[], dpi: number, pixelTolerance = 5) => {
+type GroupingOptions = {
+    dpi: number;
+    pixelTolerance?: number;
+    sortHorizontally?: boolean;
+};
+
+export const groupObservationsByIndex = (
+    observations: Observation[],
+    { dpi, pixelTolerance = 5, sortHorizontally }: GroupingOptions,
+) => {
     const marked = markObservationsWithIndex(observations, dpi, pixelTolerance);
     const groups: Observation[][] = [];
 
@@ -14,8 +23,10 @@ export const groupObservationsByIndex = (observations: Observation[], dpi: numbe
         groups[m.index].push({ bbox: m.bbox, text: m.text });
     }
 
-    for (const group of groups) {
-        group.sort((a, b) => a.bbox.x - b.bbox.x);
+    if (sortHorizontally) {
+        for (const group of groups) {
+            group.sort((a, b) => a.bbox.x - b.bbox.x);
+        }
     }
 
     return groups;
