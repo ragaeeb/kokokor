@@ -5,83 +5,88 @@ import { groupObservationsByIndex, mergeGroupedObservations } from './grouping';
 describe('grouping', () => {
     describe('groupObservationsByIndex', () => {
         it('should group the observations by their closest y-coordinate and sort the observations by their respective x-coordinates', () => {
-            const actual = groupObservationsByIndex(
-                [
-                    {
-                        bbox: {
-                            height: 93,
-                            width: 600,
-                            x: 479,
-                            y: 36,
-                        },
-                        text: 'أعادوا بها معنى سواع ومثله',
+            const actual = groupObservationsByIndex([
+                {
+                    bbox: {
+                        height: 93,
+                        width: 600,
+                        x: 479,
+                        y: 36,
                     },
-                    {
-                        bbox: {
-                            height: 79,
-                            width: 632,
-                            x: 469,
-                            y: 172,
-                        },
-                        text: 'وقد هتفوا عند الشدائد باسمها',
+                    index: 0,
+                    text: 'أعادوا بها معنى سواع ومثله',
+                },
+                {
+                    bbox: {
+                        height: 79,
+                        width: 632,
+                        x: 469,
+                        y: 172,
                     },
-                    {
-                        bbox: {
-                            height: 79,
-                            width: 628,
-                            x: 469,
-                            y: 292,
-                        },
-                        text: 'وكم نحروا في سوحها من نحيرة',
+                    index: 1,
+                    text: 'وقد هتفوا عند الشدائد باسمها',
+                },
+                {
+                    bbox: {
+                        height: 79,
+                        width: 628,
+                        x: 469,
+                        y: 292,
                     },
-                    {
-                        bbox: {
-                            height: 84,
-                            width: 632,
-                            x: 469,
-                            y: 413,
-                        },
-                        text: 'وكم طائف حول القبور مقبلاً',
+                    index: 2,
+                    text: 'وكم نحروا في سوحها من نحيرة',
+                },
+                {
+                    bbox: {
+                        height: 84,
+                        width: 632,
+                        x: 469,
+                        y: 413,
                     },
-                    {
-                        bbox: {
-                            height: 74,
-                            width: 609,
-                            x: 1260,
-                            y: 36,
-                        },
-                        text: 'يغوث وود بئس ذلك من ود',
+                    index: 3,
+                    text: 'وكم طائف حول القبور مقبلاً',
+                },
+                {
+                    bbox: {
+                        height: 74,
+                        width: 609,
+                        x: 1260,
+                        y: 36,
                     },
-                    {
-                        bbox: {
-                            height: 79,
-                            width: 711,
-                            x: 1260,
-                            y: 167,
-                        },
-                        text: 'كما يهتف المضطر بالصمد الفرد',
+                    index: 0,
+                    text: 'يغوث وود بئس ذلك من ود',
+                },
+                {
+                    bbox: {
+                        height: 79,
+                        width: 711,
+                        x: 1260,
+                        y: 167,
                     },
-                    {
-                        bbox: {
-                            height: 83,
-                            width: 665,
-                            x: 1251,
-                            y: 283,
-                        },
-                        text: 'أهلت لغير اللّٰه جهراً على عمد',
+                    index: 1,
+                    text: 'كما يهتف المضطر بالصمد الفرد',
+                },
+                {
+                    bbox: {
+                        height: 83,
+                        width: 665,
+                        x: 1251,
+                        y: 283,
                     },
-                    {
-                        bbox: {
-                            height: 114,
-                            width: 664,
-                            x: 1240,
-                            y: 398,
-                        },
-                        text: 'ويستلم الأركان منهن باليد (١)',
+                    index: 2,
+                    text: 'أهلت لغير اللّٰه جهراً على عمد',
+                },
+                {
+                    bbox: {
+                        height: 114,
+                        width: 664,
+                        x: 1240,
+                        y: 398,
                     },
-                ],
-                { dpi: 72, sortHorizontally: true },
-            );
+                    index: 3,
+                    text: 'ويستلم الأركان منهن باليد (١)',
+                },
+            ]);
 
             expect(actual).toEqual([
                 [

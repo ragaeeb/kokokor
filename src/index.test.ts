@@ -3,9 +3,9 @@ import path from 'node:path';
 
 import type { Observation, OcrResult } from './types';
 
-import { rebuildTextFromOCR } from './index';
+import { rebuildParagraphs } from './index';
 
-const WRITE_RESULT = false;
+const WRITE_RESULT = true;
 
 type Metadata = {
     horizontal_lines: { height: number; width: number; x: number; y: number }[];
@@ -42,12 +42,12 @@ const loadOCRData = async (...only: string[]) => {
 };
 
 describe('index', () => {
-    describe('rebuildTextFromOCR', async () => {
+    describe('rebuildParagraphs', async () => {
         const testData = await loadOCRData();
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];
-            const actual = rebuildTextFromOCR(ocrData);
+            const actual = rebuildParagraphs(ocrData);
 
             const parsedFile = path.parse(path.join('test', 'mixed', imageFile));
             const expectationFile = Bun.file(path.format({ dir: parsedFile.dir, ext: '.txt', name: parsedFile.name }));

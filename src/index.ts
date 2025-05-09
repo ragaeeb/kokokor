@@ -1,16 +1,28 @@
 import type { OcrResult } from './types';
 
-import { groupObservationsByIndex, mergeGroupedObservations } from './utils/grouping';
+import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './utils/grouping';
 import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/indexing';
-import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
+import { applyFooter, mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
 
 const DEFAULT_DPI = 72;
 
 export const FOOTER_LINE = '___';
 
-export const mapOCRResultToParagraphObservations = (ocr: OcrResult) => {
+type RebuildOptions = {
+    fallbackDPI?: number;
+    footerSymbol?: string;
+    pixelTolerance?: number;
+    standardDpiX?: number;
+    verticalJumpFactor?: number;
+    widthTolerance?: number;
+};
+
+export const mapOCRResultToParagraphObservations = (
+    ocr: OcrResult,
+    { fallbackDPI = DEFAULT_DPI }: RebuildOptions = {},
+) => {
     if (ocr.observations.length === 0) {
-        return '';
+        return ocr.observations;
     }
 
     const { x: dpiX = DEFAULT_DPI, y: dpiY = DEFAULT_DPI } = ocr.dpi;
@@ -18,28 +30,26 @@ export const mapOCRResultToParagraphObservations = (ocr: OcrResult) => {
     const observations = mapOcrResultToRTLObservations(ocr.observations, ocr.dpi.width);
     const normalized = normalizeObservationsX(observations, dpiX);
     let marked = indexObservationsAsLines(normalized, dpiY);
-    let groups = groupObservationsByIndex(marked, { dpi: dpiY, sortHorizontally: true });
+    let groups = groupObservationsByIndex(marked);
+    groups = sortGroupsHorizontally(groups);
     let merged = mergeGroupedObservations(groups);
 
     marked = indexObservationsAsParagraphs(merged);
-    groups = groupObservationsByIndex(marked, { dpi: dpiY });
+    groups = groupObservationsByIndex(marked);
     merged = mergeGroupedObservations(groups);
 
-    const footerLine = ocr.horizontalLines?.at(-1);
-
-    if (footerLine) {
-        const insertAfter = merged.findLastIndex((o) => o.bbox.y < footerLine.y);
-        const footerObservation = {
-            bbox: footerLine,
+    if (ocr.horizontalLines?.at(-1) && Number(1) === 2) {
+        merged = applyFooter(merged, {
+            bbox: ocr.horizontalLines.at(-1)!,
             text: FOOTER_LINE,
-        };
-
-        if (insertAfter >= 0) {
-            merged.splice(insertAfter + 1, 0, footerObservation);
-        } else {
-            console.warn('Footer not found');
-        }
+        });
     }
 
-    return merged.map((o) => o.text).join('\n');
+    return merged;
+};
+
+export const rebuildParagraphs = (ocr: OcrResult, options?: RebuildOptions) => {
+    return mapOCRResultToParagraphObservations(ocr, options)
+        .map((o) => o.text)
+        .join('\n');
 };

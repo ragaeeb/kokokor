@@ -9,14 +9,25 @@ export const normalizeObservationsX = (observations: Observation[], dpi: number,
     const minX = Math.min(...observations.map((o) => o.bbox.x));
 
     return observations.map((o) => {
-        const observation = { ...o };
-
         if (Math.abs(o.bbox.x - minX) <= thresholdPx) {
-            observation.bbox.x = minX;
+            return { ...o, bbox: { ...o.bbox, x: minX } };
         }
 
         return o;
     });
 };
 
-export const applyFooter = (observations: Observation[], footer: Observation) => {};
+export const applyFooter = (observations: Observation[], footer: Observation) => {
+    const insertAfter = observations.findLastIndex((o) => o.bbox.y < footer.bbox.y);
+
+    if (insertAfter >= 0) {
+        const observationsWithFooter = observations.slice();
+        observationsWithFooter.splice(insertAfter + 1, 0, footer);
+
+        return observationsWithFooter;
+    }
+
+    console.warn('Footer not found');
+
+    return observations;
+};

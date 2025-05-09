@@ -2,11 +2,6 @@ export type IndexedObservation = Observation & {
     index: number;
 };
 
-export type Kokokor = {
-    content: string;
-    footnotes?: string;
-};
-
 export type Observation = {
     readonly bbox: BoundingBox;
     readonly text: string;

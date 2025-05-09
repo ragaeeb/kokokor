@@ -1,12 +1,6 @@
 import type { IndexedObservation, Observation } from '@/types';
 
-type GroupingOptions = {
-    dpi: number;
-    pixelTolerance?: number;
-    sortHorizontally?: boolean;
-};
-
-export const groupObservationsByIndex = (marked: IndexedObservation[], { sortHorizontally }: GroupingOptions) => {
+export const groupObservationsByIndex = (marked: IndexedObservation[]) => {
     const groups: Observation[][] = [];
 
     for (const m of marked) {
@@ -17,10 +11,15 @@ export const groupObservationsByIndex = (marked: IndexedObservation[], { sortHor
         groups[m.index].push({ bbox: m.bbox, text: m.text });
     }
 
-    if (sortHorizontally) {
-        for (const group of groups) {
-            group.sort((a, b) => a.bbox.x - b.bbox.x);
-        }
+    return groups;
+};
+
+export const sortGroupsHorizontally = (grouped: Observation[][]) => {
+    const groups = grouped.slice();
+
+    for (let i = 0; i < groups.length; i++) {
+        const group = groups[i];
+        groups[i] = group.toSorted((a, b) => a.bbox.x - b.bbox.x);
     }
 
     return groups;
