@@ -5,7 +5,7 @@ import type { Observation, OcrResult } from './types';
 
 import { rebuildParagraphs } from './index';
 
-const WRITE_RESULT = true;
+const WRITE_RESULT = false;
 
 type Metadata = {
     horizontal_lines: { height: number; width: number; x: number; y: number }[];

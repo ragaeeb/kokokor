@@ -1,5 +1,5 @@
 export type IndexedObservation = Observation & {
-    index: number;
+    readonly index: number;
 };
 
 export type Observation = {

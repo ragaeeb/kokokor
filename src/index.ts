@@ -4,48 +4,51 @@ import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizonta
 import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/indexing';
 import { applyFooter, mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
 
-const DEFAULT_DPI = 72;
-
-export const FOOTER_LINE = '___';
-
-type RebuildOptions = {
-    fallbackDPI?: number;
-    footerSymbol?: string;
-    pixelTolerance?: number;
-    standardDpiX?: number;
-    verticalJumpFactor?: number;
-    widthTolerance?: number;
+export type RebuildOptions = {
+    readonly fallbackDPI?: number;
+    readonly footerSymbol?: string;
+    readonly pixelTolerance?: number;
+    readonly standardDpiX?: number;
+    readonly verticalJumpFactor?: number;
+    readonly widthTolerance?: number;
 };
 
 export const mapOCRResultToParagraphObservations = (
     ocr: OcrResult,
-    { fallbackDPI = DEFAULT_DPI }: RebuildOptions = {},
+    {
+        fallbackDPI = 72,
+        footerSymbol,
+        pixelTolerance = 5,
+        standardDpiX = 300,
+        verticalJumpFactor = 2,
+        widthTolerance = 0.85,
+    }: RebuildOptions = {},
 ) => {
     if (ocr.observations.length === 0) {
         return ocr.observations;
     }
 
-    const { x: dpiX = DEFAULT_DPI, y: dpiY = DEFAULT_DPI } = ocr.dpi;
+    const { x: dpiX = fallbackDPI, y: dpiY = fallbackDPI } = ocr.dpi;
 
-    const observations = mapOcrResultToRTLObservations(ocr.observations, ocr.dpi.width);
-    const normalized = normalizeObservationsX(observations, dpiX);
-    let marked = indexObservationsAsLines(normalized, dpiY);
+    let observations = mapOcrResultToRTLObservations(ocr.observations, ocr.dpi.width);
+    observations = normalizeObservationsX(observations, dpiX, standardDpiX);
+    let marked = indexObservationsAsLines(observations, dpiY, pixelTolerance);
     let groups = groupObservationsByIndex(marked);
     groups = sortGroupsHorizontally(groups);
-    let merged = mergeGroupedObservations(groups);
+    observations = mergeGroupedObservations(groups);
 
-    marked = indexObservationsAsParagraphs(merged);
+    marked = indexObservationsAsParagraphs(observations, verticalJumpFactor, widthTolerance);
     groups = groupObservationsByIndex(marked);
-    merged = mergeGroupedObservations(groups);
+    observations = mergeGroupedObservations(groups);
 
-    if (ocr.horizontalLines?.at(-1) && Number(1) === 2) {
-        merged = applyFooter(merged, {
+    if (footerSymbol && ocr.horizontalLines?.at(-1)) {
+        observations = applyFooter(observations, {
             bbox: ocr.horizontalLines.at(-1)!,
-            text: FOOTER_LINE,
+            text: footerSymbol,
         });
     }
 
-    return merged;
+    return observations;
 };
 
 export const rebuildParagraphs = (ocr: OcrResult, options?: RebuildOptions) => {
@@ -53,3 +56,5 @@ export const rebuildParagraphs = (ocr: OcrResult, options?: RebuildOptions) => {
         .map((o) => o.text)
         .join('\n');
 };
+
+export * from './types';

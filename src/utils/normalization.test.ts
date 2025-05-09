@@ -45,6 +45,7 @@ describe('normalization', () => {
                     },
                 ],
                 72,
+                300,
             );
 
             expect(actual).toEqual([

@@ -4,7 +4,7 @@ export const mapOcrResultToRTLObservations = (observations: Observation[], image
     return observations.map((o) => ({ ...o, bbox: { ...o.bbox, x: imageWidth - o.bbox.x - o.bbox.width } }));
 };
 
-export const normalizeObservationsX = (observations: Observation[], dpi: number, standardDPI = 300) => {
+export const normalizeObservationsX = (observations: Observation[], dpi: number, standardDPI: number) => {
     const thresholdPx = (standardDPI / dpi) * 5;
     const minX = Math.min(...observations.map((o) => o.bbox.x));
 

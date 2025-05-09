@@ -10,7 +10,7 @@ import type { IndexedObservation, Observation } from '@/types';
  * @param dpi            image DPI (defaults to 72)
  * @param pixelTolerance extra vertical slack in “pixels at 72dpi”
  */
-export const indexObservationsAsLines = (observations: Observation[], dpi: number, pixelTolerance = 5) => {
+export const indexObservationsAsLines = (observations: Observation[], dpi: number, pixelTolerance: number) => {
     // how many device‐pixels of slack at this DPI?
     const effectiveYTolerance = pixelTolerance * (dpi / 72);
 
@@ -45,8 +45,8 @@ export const indexObservationsAsLines = (observations: Observation[], dpi: numbe
 
 export const indexObservationsAsParagraphs = (
     observations: Observation[],
-    verticalJumpFactor = 2,
-    widthTolerance = 0.85,
+    verticalJumpFactor: number,
+    widthTolerance: number,
 ) => {
     // ensure top→bottom order
     const byY = observations.toSorted((a, b) => a.bbox.y - b.bbox.y);
