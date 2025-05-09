@@ -122,6 +122,20 @@ describe('indexing', () => {
             expect(paragraphs[3].index).toBe(1); // New paragraph due to gap increase
         });
 
+        it('should create new paragraph for significant vertical jumps', () => {
+            const observations = [
+                { bbox: { height: 10, width: 200, x: 10, y: 10 }, index: 0, text: 'Line 1' },
+                { bbox: { height: 10, width: 200, x: 10, y: 30 }, index: 1, text: 'Line 2' },
+                // Huge vertical jump
+                { bbox: { height: 10, width: 200, x: 10, y: 150 }, index: 2, text: 'Line 3' },
+            ];
+
+            const result = indexObservationsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(result[1].index);
+            expect(result[1].index).not.toBe(result[2].index);
+        });
+
         it('should sort result by paragraph and then y-coordinate', () => {
             const observations = [
                 { bbox: { height: 20, width: 500, x: 10, y: 40 }, text: 'Para 1 line 2' },
@@ -137,6 +151,19 @@ describe('indexing', () => {
             expect(paragraphs[1].text).toBe('Para 1 line 2');
             expect(paragraphs[2].text).toBe('Para 2 line 1');
             expect(paragraphs[3].text).toBe('Para 2 line 2');
+        });
+
+        it('should create new paragraph for lines with width below tolerance', () => {
+            const observations = [
+                { bbox: { height: 10, width: 200, x: 10, y: 10 }, index: 0, text: 'Line 1' },
+                { bbox: { height: 10, width: 160, x: 10, y: 30 }, index: 1, text: 'Line 2' }, // Width within tolerance
+                { bbox: { height: 10, width: 50, x: 10, y: 50 }, index: 2, text: 'Line 3' }, // Width below tolerance
+            ];
+
+            const result = indexObservationsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(result[1].index); // Same paragraph
+            expect(result[1].index).not.toBe(result[2].index); // New paragraph
         });
     });
 });

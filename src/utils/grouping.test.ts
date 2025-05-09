@@ -222,6 +222,28 @@ describe('grouping', () => {
             ]);
         });
 
+        it('should group observations by their index property', () => {
+            const observations = [
+                { bbox: { height: 10, width: 50, x: 10, y: 10 }, index: 0, text: 'Line 1, Word 1' },
+                { bbox: { height: 10, width: 50, x: 10, y: 30 }, index: 1, text: 'Line 2, Word 1' },
+                { bbox: { height: 10, width: 60, x: 70, y: 10 }, index: 0, text: 'Line 1, Word 2' },
+                { bbox: { height: 10, width: 60, x: 70, y: 30 }, index: 1, text: 'Line 2, Word 2' },
+                { bbox: { height: 10, width: 100, x: 10, y: 50 }, index: 2, text: 'Line 3' },
+            ];
+
+            const result = groupObservationsByIndex(observations);
+
+            expect(Object.keys(result).length).toBe(3); // Three groups
+            expect(result[0].length).toBe(2); // Two items in group 0
+            expect(result[1].length).toBe(2); // Two items in group 1
+            expect(result[2].length).toBe(1); // One item in group 2
+
+            // Check group contents
+            expect(result[0].map((o) => o.text)).toEqual(['Line 1, Word 1', 'Line 1, Word 2']);
+            expect(result[1].map((o) => o.text)).toEqual(['Line 2, Word 1', 'Line 2, Word 2']);
+            expect(result[2].map((o) => o.text)).toEqual(['Line 3']);
+        });
+
         it('should handle empty input array', () => {
             const actual = groupObservationsByIndex([]);
             expect(actual).toEqual([]);
