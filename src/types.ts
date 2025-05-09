@@ -49,6 +49,54 @@ export type OcrResult = {
 };
 
 /**
+ * Configuration options for OCR result processing and paragraph reconstruction.
+ * These options control how text observations are grouped, aligned, and formatted.
+ */
+export type RebuildOptions = {
+    /**
+     * The default DPI to use when the OCR result doesn't provide DPI information.
+     * This ensures consistent scaling even with incomplete metadata.
+     * @default 72
+     */
+    readonly fallbackDPI?: number;
+
+    /**
+     * Symbol or text to use as a footer marker when horizontal lines are detected.
+     * When provided, this text will be inserted below the last horizontal line in the document.
+     * @default undefined
+     */
+    readonly footerSymbol?: string;
+
+    /**
+     * Vertical tolerance in pixels (at 72 DPI) for line detection.
+     * Higher values will be more lenient in grouping text with vertical offsets into the same line.
+     * @default 5
+     */
+    readonly pixelTolerance?: number;
+
+    /**
+     * The target DPI for x-coordinate normalization.
+     * Used to ensure consistent alignment thresholds regardless of source document resolution.
+     * @default 300
+     */
+    readonly standardDpiX?: number;
+
+    /**
+     * Factor determining how much larger a vertical gap needs to be to indicate a paragraph break.
+     * A value of 2 means a gap twice as large as the previous gap will start a new paragraph.
+     * @default 2
+     */
+    readonly verticalJumpFactor?: number;
+
+    /**
+     * Fraction of maximum line width below which a line is considered "short" (0-1).
+     * Short lines typically indicate paragraph endings and trigger paragraph breaks.
+     * @default 0.85
+     */
+    readonly widthTolerance?: number;
+};
+
+/**
  * Represents a rectangular bounding box with position and dimensions.
  * Used to define the location and size of text elements and structural components.
  */

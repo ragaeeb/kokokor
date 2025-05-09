@@ -64,3 +64,19 @@ export const applyFooter = (observations: Observation[], footer: Observation) =>
 
     return observations;
 };
+
+/**
+ * Purely for helping debug by simplifying an observation by narrowing down its floating point and text.
+ * @param observation The observation to simplify.
+ */
+export const simplifyObservation = (observation: Observation): Observation => {
+    return {
+        bbox: {
+            height: Math.trunc(observation.bbox.height),
+            width: Math.trunc(observation.bbox.width),
+            x: Math.trunc(observation.bbox.x),
+            y: Math.trunc(observation.bbox.y),
+        },
+        text: observation.text.split(' ')[0],
+    };
+};

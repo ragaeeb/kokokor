@@ -51,24 +51,49 @@ export const sortGroupsHorizontally = (grouped: Observation[][]) => {
  * @returns An array of merged observations, where each item represents a complete line or paragraph
  */
 export const mergeGroupedObservations = (grouped: Observation[][]) => {
-    const flattened = grouped.flatMap((group) => {
-        const minX = Math.min(...group.map((o) => o.bbox.x));
-        const minY = Math.min(...group.map((o) => o.bbox.y));
-        const maxX = Math.max(...group.map((o) => o.bbox.x + o.bbox.width));
-        const maxY = Math.max(...group.map((o) => o.bbox.y + o.bbox.height));
+    const result: Observation[] = [];
 
-        return [
-            {
-                bbox: {
-                    height: maxY - minY,
-                    width: maxX - minX,
-                    x: minX,
-                    y: minY,
-                },
-                text: group.map((g) => g.text).join(' '),
+    for (const group of grouped) {
+        // Short circuit for single-observation groups
+        if (group.length === 1) {
+            result.push(group[0]);
+            continue;
+        }
+
+        // Initialize with the first observation's values
+        let minX = group[0].bbox.x;
+        let minY = group[0].bbox.y;
+        let maxX = group[0].bbox.x + group[0].bbox.width;
+        let maxY = group[0].bbox.y + group[0].bbox.height;
+
+        // Build the combined text
+        let combinedText = group[0].text;
+
+        // Process the rest of the observations in a single pass
+        for (let i = 1; i < group.length; i++) {
+            const { bbox, text } = group[i];
+
+            // Update bounding box coordinates
+            minX = Math.min(minX, bbox.x);
+            minY = Math.min(minY, bbox.y);
+            maxX = Math.max(maxX, bbox.x + bbox.width);
+            maxY = Math.max(maxY, bbox.y + bbox.height);
+
+            // Append text with space
+            combinedText += ' ' + text;
+        }
+
+        // Create the merged observation
+        result.push({
+            bbox: {
+                height: maxY - minY,
+                width: maxX - minX,
+                x: minX,
+                y: minY,
             },
-        ];
-    });
+            text: combinedText,
+        });
+    }
 
-    return flattened;
+    return result;
 };

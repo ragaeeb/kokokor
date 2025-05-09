@@ -5,7 +5,7 @@
 [![Node.js CI](https://github.com/ragaeeb/kokokor/actions/workflows/build.yml/badge.svg)](https://github.com/ragaeeb/kokokor/actions/workflows/build.yml)
 ![GitHub License](https://img.shields.io/github/license/ragaeeb/kokokor)
 ![GitHub Release](https://img.shields.io/github/v/release/ragaeeb/kokokor)
-[![codecov](https://codecov.io/gh/ragaeeb/kokokor/graph/badge.svg?token=B3IRBVOS3H)](https://codecov.io/gh/ragaeeb/kokokor)
+[![codecov](https://codecov.io/gh/ragaeeb/kokokor/graph/badge.svg?token=IIGTM9JSR3)](https://codecov.io/gh/ragaeeb/kokokor)
 [![Size](https://deno.bundlejs.com/badge?q=kokokor@latest&badge=detailed)](https://bundlejs.com/?q=kokokor%40latest)
 ![typescript](https://badgen.net/badge/icon/typescript?icon=typescript&label&color=blue)
 ![npm](https://img.shields.io/npm/dm/kokokor)

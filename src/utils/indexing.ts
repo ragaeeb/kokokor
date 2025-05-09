@@ -64,8 +64,11 @@ export const indexObservationsAsParagraphs = (
     observations: Observation[],
     verticalJumpFactor: number,
     widthTolerance: number,
-) => {
-    // Calculate width threshold for identifying short lines
+): IndexedObservation[] => {
+    if (observations.length === 0) {
+        return [];
+    }
+    // 1) compute width threshold
     const maxWidth = Math.max(...observations.map((o) => o.bbox.width));
     const thresholdWidth = maxWidth * widthTolerance;
 
@@ -75,27 +78,78 @@ export const indexObservationsAsParagraphs = (
     for (let i = 0; i < observations.length; i++) {
         const o = observations[i];
 
-        // Check for significant vertical jump indicating paragraph break
-        // Compare current gap with previous gap if we have enough observations
+        // a) only apply vertical‐jump if *both* of the two preceding lines
+        //    were “full” (not short).  This prevents double‐counting at the
+        //    body→footer cut.
         if (i > 1) {
             const prev = observations[i - 1];
             const prevPrev = observations[i - 2];
-            const gap = o.bbox.y - prev.bbox.y;
-            const prevGap = prev.bbox.y - prevPrev.bbox.y;
-            if (gap > prevGap * verticalJumpFactor) {
-                index++;
+            if (prev.bbox.width >= thresholdWidth && prevPrev.bbox.width >= thresholdWidth) {
+                const gap = o.bbox.y - prev.bbox.y;
+                const prevGap = prev.bbox.y - prevPrev.bbox.y;
+                // Ensure prevGap is not zero to avoid division by zero or infinite jumpFactor sensitivity
+                if (prevGap > 0 && gap > prevGap * verticalJumpFactor) {
+                    index++;
+                } else if (prevGap === 0 && gap > 0) {
+                    // If previous gap was zero (e.g. overlapping lines), any positive gap is a jump
+                    // This case might need specific tuning or could be considered a break.
+                    // For now, let's consider a significant jump if prevGap was 0 and gap is substantial (e.g. > average line height)
+                    // However, the original logic didn't explicitly handle prevGap = 0 differently beyond it not meeting gap > prevGap * factor.
+                    // A simple approach if prevGap is 0 and gap > some_minimal_threshold (e.g. o.bbox.height * 0.5 * verticalJumpFactor)
+                    // For the current fix, we stick to the original logic structure for vertical jumps,
+                    // as the main issue is the short-line break.
+                }
+            }
+        } else if (i === 1) {
+            const prev = observations[i - 1]; // This is observations[0]
+            // Only consider a vertical jump if the FIRST line was full-width.
+            // If the first line was short, its shortness already incremented 'index' for the current line.
+            if (prev.bbox.width >= thresholdWidth) {
+                const gap = o.bbox.y - prev.bbox.y;
+                if (gap > prev.bbox.height * verticalJumpFactor) {
+                    index++;
+                }
             }
         }
 
-        // tag this line
+        // console.log('out.push, index, didbreak, o', index, didBreak, o); // Retain for debugging if needed
+
+        // tag
         out.push({ ...o, index });
 
-        // if it’s a “short” line, bump to new paragraph afterwards
+        // b) short‐width break for the *next* line
         if (o.bbox.width < thresholdWidth) {
             index++;
         }
     }
 
-    // final sort by paragraph then y (just to keep stable ordering)
-    return out.toSorted((a, b) => (a.index !== b.index ? a.index - b.index : a.bbox.y - b.bbox.y));
+    // stable sort by index then y
+    return out.sort((a, b) => (a.index !== b.index ? a.index - b.index : a.bbox.y - b.bbox.y));
 };
+
+/**
+ * Ensures that the set of `index` values on your observations
+ * forms a contiguous 0…N sequence with no gaps.
+ * Throws an Error if it finds any missing index.
+ */
+export function assertIndicesContinuous<T extends { index: number }>(marked: T[]): void {
+    // collect the unique indices, sorted
+    const unique = Array.from(new Set(marked.map((o) => o.index))).sort((a, b) => a - b);
+
+    if (unique.length === 0) return;
+
+    // must start at zero
+    if (unique[0] !== 0) {
+        throw new Error(`Paragraph indices must start at 0, but first index is ${unique[0]}`);
+    }
+
+    // check for gaps
+    for (let i = 0; i < unique.length; i++) {
+        if (unique[i] !== i) {
+            throw new Error(
+                `Paragraph index gap: expected index ${i} but got ${unique[i]}. ` +
+                    `Full index list: [${unique.join(', ')}]`,
+            );
+        }
+    }
+}

@@ -6,6 +6,7 @@ import type { Observation, OcrResult } from './types';
 import { rebuildParagraphs } from './index';
 
 const WRITE_RESULT = false;
+const ONLY_FILES = [];
 
 type Metadata = {
     horizontal_lines: { height: number; width: number; x: number; y: number }[];
@@ -43,7 +44,7 @@ const loadOCRData = async (...only: string[]) => {
 
 describe('index', () => {
     describe('rebuildParagraphs', async () => {
-        const testData = await loadOCRData();
+        const testData = await loadOCRData(...ONLY_FILES);
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];
