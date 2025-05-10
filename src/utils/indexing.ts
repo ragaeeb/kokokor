@@ -1,5 +1,7 @@
 import type { IndexedObservation, Observation } from '@/types';
 
+const LINE_HEIGHT_FACTOR = 0.49;
+
 /**
  * Groups observations into lines based on vertical proximity.
  *
@@ -16,13 +18,11 @@ import type { IndexedObservation, Observation } from '@/types';
 export const indexObservationsAsLines = (observations: Observation[], dpi: number, pixelTolerance: number) => {
     // how many device‐pixels of slack at this DPI?
     const effectiveYTolerance = pixelTolerance * (dpi / 72);
-
-    // 1) sort top→bottom by y
     const byY = observations.toSorted((a, b) => a.bbox.y - b.bbox.y);
 
     const marked: IndexedObservation[] = [];
     let currentLine = 0;
-    let prev = byY[0];
+    let [prev] = byY;
 
     marked.push({ ...prev, index: currentLine });
 
@@ -30,11 +30,9 @@ export const indexObservationsAsLines = (observations: Observation[], dpi: numbe
         const obs = byY[i];
         const dy = obs.bbox.y - prev.bbox.y;
 
-        // Calculate threshold: half the taller box + extra tolerance
-        const baseThresh = Math.max(prev.bbox.height, obs.bbox.height) * 0.5;
+        const baseThresh = Math.max(prev.bbox.height, obs.bbox.height) * LINE_HEIGHT_FACTOR;
         const threshold = baseThresh + effectiveYTolerance;
 
-        // If vertical gap exceeds threshold, start a new line
         if (dy > threshold) {
             currentLine += 1;
         }
@@ -43,7 +41,6 @@ export const indexObservationsAsLines = (observations: Observation[], dpi: numbe
         prev = obs;
     }
 
-    // finally, ensure grouped by line then y
     return marked.sort((a, b) => (a.index !== b.index ? a.index - b.index : a.bbox.y - b.bbox.y));
 };
 

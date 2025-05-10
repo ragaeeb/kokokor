@@ -153,7 +153,6 @@ describe('normalization', () => {
 
             const footer = { bbox: { height: 5, width: 100, x: 20, y: 200 }, text: 'Footer' };
 
-            // Mock console.warn to verify it's called
             const originalWarn = console.warn;
             const mockWarn = mock(() => {});
             console.warn = mockWarn;
@@ -163,7 +162,6 @@ describe('normalization', () => {
             expect(result).toEqual(observations);
             expect(mockWarn).toHaveBeenCalledWith('Footer not found');
 
-            // Restore original console.warn
             console.warn = originalWarn;
         });
 
@@ -171,7 +169,6 @@ describe('normalization', () => {
             const observations = [];
             const footer = { bbox: { height: 5, width: 100, x: 20, y: 200 }, text: 'Footer' };
 
-            // Mock console.warn
             const originalWarn = console.warn;
             const mockWarn = mock(() => {});
             console.warn = mockWarn;
@@ -181,7 +178,6 @@ describe('normalization', () => {
             expect(result).toEqual([]);
             expect(mockWarn).toHaveBeenCalledWith('Footer not found');
 
-            // Restore original console.warn
             console.warn = originalWarn;
         });
     });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import path from 'node:path';
 
-import type { Observation, OcrResult } from './types';
+import type { BoundingBox, Observation, OcrResult } from './types';
 
 import { rebuildParagraphs } from './index';
 
@@ -9,17 +9,19 @@ const WRITE_RESULT = false;
 const ONLY_FILES = [];
 
 type Metadata = {
-    horizontal_lines: { height: number; width: number; x: number; y: number }[];
-    image_info: { dpi_x: number; dpi_y: number };
+    dpi: BoundingBox;
+    horizontal_lines?: BoundingBox[];
+    rectangles?: BoundingBox[];
 };
 
-type OcrTestResults = { height: number; observations: Observation[]; width: number };
+type OcrTestResults = { observations: Observation[] };
 
 const loadOCRData = async (...only: string[]) => {
     const fileToTestData: Record<string, OcrTestResults> = await Bun.file(
         path.join('test', 'mixed', 'ocr.json'),
     ).json();
-    const structures: Record<string, Metadata> = await Bun.file(path.join('test', 'mixed', 'structures.json')).json();
+    const structures: Record<string, Metadata> = (await Bun.file(path.join('test', 'mixed', 'structures.json')).json())
+        .result;
     const fileToData: Record<string, OcrResult> = {};
 
     Object.entries(fileToTestData).forEach(([imageFile, ocrResult]) => {
@@ -27,12 +29,7 @@ const loadOCRData = async (...only: string[]) => {
             const structure = structures[imageFile];
 
             fileToData[imageFile] = {
-                dpi: {
-                    height: ocrResult.height,
-                    width: ocrResult.width,
-                    x: structure.image_info.dpi_x,
-                    y: structure.image_info.dpi_y,
-                },
+                dpi: structure.dpi,
                 horizontalLines: structure.horizontal_lines,
                 observations: ocrResult.observations,
             };

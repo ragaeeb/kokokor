@@ -2,7 +2,13 @@ import type { OcrResult, RebuildOptions } from './types';
 
 import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './utils/grouping';
 import { assertIndicesContinuous, indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/indexing';
-import { applyFooter, mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
+import { isPoeticLayout } from './utils/layout';
+import {
+    applyFooter,
+    mapOcrResultToRTLObservations,
+    normalizeObservationsX,
+    simplifyObservation,
+} from './utils/normalization';
 
 /**
  * Processes OCR result data to identify and reconstruct paragraphs from individual text observations.
@@ -38,18 +44,22 @@ export const mapOCRResultToParagraphObservations = (
 
     let observations = mapOcrResultToRTLObservations(ocr.observations, ocr.dpi.width);
     observations = normalizeObservationsX(observations, dpiX, standardDpiX);
+
     let marked = indexObservationsAsLines(observations, dpiY, pixelTolerance);
     assertIndicesContinuous(marked); // TODO: Remove, purely for catching bugs early during alpha stage
 
     let groups = groupObservationsByIndex(marked);
     groups = sortGroupsHorizontally(groups);
+
     observations = mergeGroupedObservations(groups);
 
-    marked = indexObservationsAsParagraphs(observations, verticalJumpFactor, widthTolerance);
-    assertIndicesContinuous(marked);
+    if (!isPoeticLayout(groups)) {
+        marked = indexObservationsAsParagraphs(observations, verticalJumpFactor, widthTolerance);
+        assertIndicesContinuous(marked);
 
-    groups = groupObservationsByIndex(marked);
-    observations = mergeGroupedObservations(groups);
+        groups = groupObservationsByIndex(marked);
+        observations = mergeGroupedObservations(groups);
+    }
 
     if (footerSymbol && ocr.horizontalLines?.at(-1)) {
         observations = applyFooter(observations, {

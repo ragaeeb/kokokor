@@ -1,4 +1,31 @@
 /**
+ * Represents a rectangular bounding box with position and dimensions.
+ * Used to define the location and size of text elements and structural components.
+ */
+export type BoundingBox = {
+    /**
+     * The height of the bounding box.
+     */
+    readonly height: number;
+
+    /**
+     * The width of the bounding box.
+     */
+    readonly width: number;
+
+    /**
+     * The x-coordinate of the top-left corner of the bounding box.
+     * This coordinate may be normalized depending on text direction.
+     */
+    x: number;
+
+    /**
+     * The y-coordinate of the top-left corner of the bounding box.
+     */
+    y: number;
+};
+
+/**
  * Represents an observation with an index used for grouping observations by line or paragraph.
  * This extends the base Observation type by adding an index property for sorting and grouping.
  */
@@ -46,6 +73,11 @@ export type OcrResult = {
      * Array of text observations extracted from the document.
      */
     readonly observations: Observation[];
+
+    /**
+     * Optional array of rectangle coordinates to process chapter titles.
+     */
+    readonly rectangles?: BoundingBox[];
 };
 
 /**
@@ -94,31 +126,4 @@ export type RebuildOptions = {
      * @default 0.85
      */
     readonly widthTolerance?: number;
-};
-
-/**
- * Represents a rectangular bounding box with position and dimensions.
- * Used to define the location and size of text elements and structural components.
- */
-type BoundingBox = {
-    /**
-     * The height of the bounding box.
-     */
-    readonly height: number;
-
-    /**
-     * The width of the bounding box.
-     */
-    readonly width: number;
-
-    /**
-     * The x-coordinate of the top-left corner of the bounding box.
-     * This coordinate may be normalized depending on text direction.
-     */
-    x: number;
-
-    /**
-     * The y-coordinate of the top-left corner of the bounding box.
-     */
-    y: number;
 };
