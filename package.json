@@ -5,7 +5,7 @@
     "main": "dist/index.js",
     "devDependencies": {
         "@eslint/js": "^9.26.0",
-        "@types/bun": "^1.2.12",
+        "@types/bun": "^1.2.13",
         "@types/node": "^22.15.17",
         "eslint": "^9.26.0",
         "eslint-config-prettier": "^10.1.5",
@@ -17,9 +17,9 @@
         "tsup": "^8.4.0",
         "typescript-eslint": "^8.32.0"
     },
-    "description": "A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs and transcriptions.",
+    "description": "A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs.",
     "engines": {
-        "bun": ">=1.2.11",
+        "bun": ">=1.2.13",
         "node": ">=22.0.0"
     },
     "files": [
