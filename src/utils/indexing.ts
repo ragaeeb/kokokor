@@ -88,13 +88,11 @@ export const indexObservationsAsParagraphs = (
                 if (prevGap > 0 && gap > prevGap * verticalJumpFactor) {
                     index++;
                 } else if (prevGap === 0 && gap > 0) {
-                    // If previous gap was zero (e.g. overlapping lines), any positive gap is a jump
-                    // This case might need specific tuning or could be considered a break.
-                    // For now, let's consider a significant jump if prevGap was 0 and gap is substantial (e.g. > average line height)
-                    // However, the original logic didn't explicitly handle prevGap = 0 differently beyond it not meeting gap > prevGap * factor.
-                    // A simple approach if prevGap is 0 and gap > some_minimal_threshold (e.g. o.bbox.height * 0.5 * verticalJumpFactor)
-                    // For the current fix, we stick to the original logic structure for vertical jumps,
-                    // as the main issue is the short-line break.
+                    // If previous gap was zero (overlapping lines), consider it a paragraph break
+                    // if the current gap is significant compared to line height
+                    if (gap > o.bbox.height * 0.5 * verticalJumpFactor) {
+                        index++;
+                    }
                 }
             }
         } else if (i === 1) {
@@ -108,8 +106,6 @@ export const indexObservationsAsParagraphs = (
                 }
             }
         }
-
-        // console.log('out.push, index, didbreak, o', index, didBreak, o); // Retain for debugging if needed
 
         // tag
         out.push({ ...o, index });

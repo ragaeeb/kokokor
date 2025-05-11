@@ -7,6 +7,8 @@
         "@eslint/js": "^9.26.0",
         "@types/bun": "^1.2.13",
         "@types/node": "^22.15.17",
+        "@typescript-eslint/eslint-plugin": "^8.32.0",
+        "@typescript-eslint/parser": "^8.32.0",
         "eslint": "^9.26.0",
         "eslint-config-prettier": "^10.1.5",
         "eslint-plugin-perfectionist": "^4.12.3",
@@ -14,8 +16,7 @@
         "globals": "^16.1.0",
         "prettier": "^3.5.3",
         "semantic-release": "^24.2.3",
-        "tsup": "^8.4.0",
-        "typescript-eslint": "^8.32.0"
+        "tsup": "^8.4.0"
     },
     "description": "A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs.",
     "engines": {
@@ -26,7 +27,8 @@
         "dist/index.js",
         "dist/index.js.map",
         "dist/*.d.ts",
-        "LICENSE.md"
+        "LICENSE.md",
+        "README.md"
     ],
     "keywords": [
         "nodejs",

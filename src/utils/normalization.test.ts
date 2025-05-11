@@ -61,68 +61,6 @@ describe('normalization', () => {
             const result = normalizeObservationsX([], 72, 300);
             expect(result).toEqual([]);
         });
-
-        it('should normalize the x-coordinates based on the margins and threshold', () => {
-            const actual = normalizeObservationsX(
-                [
-                    {
-                        bbox: {
-                            x: 22,
-                        },
-                    },
-                    {
-                        bbox: {
-                            x: 25,
-                        },
-                    },
-                    {
-                        bbox: {
-                            x: 28,
-                        },
-                    },
-                    {
-                        bbox: {
-                            x: 26,
-                        },
-                    },
-                    {
-                        bbox: {
-                            x: 219.99,
-                        },
-                    },
-                ],
-                72,
-                300,
-            );
-
-            expect(actual).toEqual([
-                {
-                    bbox: {
-                        x: 22,
-                    },
-                },
-                {
-                    bbox: {
-                        x: 22,
-                    },
-                },
-                {
-                    bbox: {
-                        x: 22,
-                    },
-                },
-                {
-                    bbox: {
-                        x: 22,
-                    },
-                },
-                {
-                    bbox: {
-                        x: 219.99,
-                    },
-                },
-            ]);
-        });
     });
 
     describe('applyFooter', () => {

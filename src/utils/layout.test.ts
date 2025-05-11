@@ -12,7 +12,7 @@ describe('layout', () => {
             expect(isObservationCentered({ bbox: { width: 716, x: 73 } }, 960)).toBeFalse();
         });
 
-        it('should be false if the footnote is not centered', () => {
+        it('should be true even for wide footnotes near page edges', () => {
             expect(isObservationCentered({ bbox: { width: 726, x: 103.82 } }, 960)).toBeTrue();
         });
     });
