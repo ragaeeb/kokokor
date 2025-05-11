@@ -1,0 +1,57 @@
+{
+    "name": "kokokor",
+    "version": "1.0.0",
+    "author": "Ragaeeb Haq",
+    "main": "dist/index.js",
+    "devDependencies": {
+        "@eslint/js": "^9.26.0",
+        "@types/bun": "^1.2.13",
+        "@types/node": "^22.15.17",
+        "@typescript-eslint/eslint-plugin": "^8.32.0",
+        "@typescript-eslint/parser": "^8.32.0",
+        "eslint": "^9.26.0",
+        "eslint-config-prettier": "^10.1.5",
+        "eslint-plugin-perfectionist": "^4.12.3",
+        "eslint-plugin-prettier": "^5.4.0",
+        "globals": "^16.1.0",
+        "prettier": "^3.5.3",
+        "semantic-release": "^24.2.3",
+        "tsup": "^8.4.0"
+    },
+    "description": "A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs.",
+    "engines": {
+        "bun": ">=1.2.13",
+        "node": ">=22.0.0"
+    },
+    "files": [
+        "dist/index.js",
+        "dist/index.js.map",
+        "dist/*.d.ts",
+        "LICENSE.md",
+        "README.md"
+    ],
+    "keywords": [
+        "nodejs",
+        "ocr",
+        "formatting",
+        "paragraphs",
+        "text-processing",
+        "typescript"
+    ],
+    "license": "MIT",
+    "scripts": {
+        "build": "tsup",
+        "test": "bun test --coverage --coverage-reporter=lcov"
+    },
+    "source": "src/index.ts",
+    "type": "module",
+    "types": "dist/index.d.ts",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ragaeeb/kokokor.git"
+    },
+    "homepage": "https://github.com/ragaeeb/kokokor",
+    "bugs": {
+        "url": "https://github.com/ragaeeb/kokokor/issues"
+    }
+}
