@@ -104,10 +104,10 @@ export const calculateAlignmentScore = (
     return ALIGNMENT_SCORES.MISMATCH_PENALTY;
 };
 
-interface AlignmentCell {
+type AlignmentCell = {
     score: number;
     direction: 'diagonal' | 'up' | 'left' | null;
-}
+};
 
 type AlignedTokenPair = [string | null, string | null];
 
