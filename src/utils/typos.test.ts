@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 
-import { mapSuryaPageResultToObservations } from './surya';
+import { mapSuryaPageResultToObservations } from './typos';
 
-describe('surya', () => {
+describe('typos', () => {
     describe('mapSuryaPageResultToObservations', () => {
         it('should map the surya results to observations', () => {
             const actual = mapSuryaPageResultToObservations({

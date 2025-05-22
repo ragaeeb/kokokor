@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
 
 import { rebuildParagraphs } from './index';
-import { mapSuryaPageResultToObservations } from './utils/surya';
+import { mapSuryaPageResultToObservations } from './utils/typos';
 
 /**
  * When set to true, test results will overwrite the expected output files.

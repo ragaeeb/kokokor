@@ -30,8 +30,12 @@ const selectBestTokens = (
     { typoSymbols, similarityThreshold }: FixTypoOptions,
 ): string[] => {
     // Handle missing tokens
-    if (originalToken === null) return [suryaToken!];
-    if (suryaToken === null) return [originalToken];
+    if (originalToken === null) {
+        return [suryaToken!];
+    }
+    if (suryaToken === null) {
+        return [originalToken];
+    }
 
     // Preserve original if same after normalization (keeps diacritics)
     if (normalizeArabicText(originalToken) === normalizeArabicText(suryaToken)) {
@@ -99,10 +103,6 @@ const removeDuplicateTokens = (tokens: string[], highSimilarityThreshold: number
 
     return result;
 };
-
-// ---------------------------------------------------------------------------
-// 7. Main Processing Functions
-// ---------------------------------------------------------------------------
 
 /**
  * Fixes typos in original text using Surya text as reference

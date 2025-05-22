@@ -4,7 +4,7 @@ import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizonta
 import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/indexing';
 import { isPoeticLayout } from './utils/layout';
 import { applyFooter, mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
-import { findAndFixTypos } from './utils/surya';
+import { findAndFixTypos } from './utils/typos';
 
 const alignAndAdjustObservations = (
     obs: Observation[],
