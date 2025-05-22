@@ -78,19 +78,6 @@ const tokenize = (txt: string): string[] => {
     return s.trim().split(/\s+/).filter(Boolean);
 };
 
-const dedup = (toks: string[]): string[] => {
-    const out: string[] = [];
-    for (const tok of toks) {
-        if (out.length && normalise(out[out.length - 1]) === normalise(tok)) {
-            // keep the ‘better’ one (shorter usually means no tatwīl)
-            if (tok.length < out[out.length - 1].length) out[out.length - 1] = tok;
-        } else {
-            out.push(tok);
-        }
-    }
-    return out;
-};
-
 const dedupBursts = (toks: string[]): string[] => {
     const out: string[] = [];
 
@@ -128,7 +115,9 @@ const dedupBursts = (toks: string[]): string[] => {
 };
 
 export const fixTyposInternal = (obsText: string, suryaText: string): string => {
-    if (!suryaText.includes(HONORIFIC_SYMBOL)) return obsText;
+    if (!suryaText.includes(HONORIFIC_SYMBOL)) {
+        return obsText;
+    }
 
     const suryaToks = tokenize(suryaText);
     const obsToks = tokenize(obsText);
@@ -147,16 +136,16 @@ export const fixTyposInternal = (obsText: string, suryaText: string): string => 
     }
 
     // append any genuinely new trailing obs tokens
-    while (j < obsToks.length) merged.push(obsToks[j++]);
+    while (j < obsToks.length) {
+        merged.push(obsToks[j++]);
+    }
 
     const final = dedupBursts(merged).join(' ');
 
     // ─── debug ───────────────────────────────────────────────────────────────
-    console.log('suryaText', suryaText);
-    //console.log('suryaToks', suryaToks);
+    /*console.log('suryaText', suryaText);
     console.log('obsText', obsText);
-    //console.log('obsToks', obsToks);
-    console.log('fixed', final, '\n');
+    console.log('fixed', final, '\n'); */
     // ─────────────────────────────────────────────────────────────────────────
 
     return final;
@@ -164,8 +153,7 @@ export const fixTyposInternal = (obsText: string, suryaText: string): string => 
 
 export const findAndFixTypos = (suryaObservations: Observation[], observations: Observation[]): Observation[] => {
     if (suryaObservations.length !== observations.length) {
-        console.warn('Observation arrays do not have the same length.');
-        return observations;
+        throw new Error('Observation arrays do not have the same length.');
     }
 
     return observations.map((o, idx) => {

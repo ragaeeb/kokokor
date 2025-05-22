@@ -81,7 +81,7 @@ export const mapOCRResultToParagraphObservations = (
     //console.log('observations', observations.length, suryaObservations?.length);
 
     if (suryaObservations) {
-        findAndFixTypos(suryaObservations, observations);
+        observations = findAndFixTypos(suryaObservations, observations);
     }
 
     if (!isPoeticLayout(groups)) {
