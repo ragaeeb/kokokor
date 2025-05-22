@@ -33,90 +33,133 @@ const levenshtein = (a: string, b: string): number => {
     return dp[n];
 };
 
-/** remove Arabic diacritic marks so أن / اَنْ look identical */
-const stripDiacritics = (s: string) => s.replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '');
+const TAG_RE = /<\/?[a-z][^>]*?>/i; // crude “<sup> … </sup>” detector
+const TATWEEL_RE = /\u0640/g; // ـــــ elongation marks
+const HTML_TAG_RE = /<\/?[^>]+>/g; // <sup> … >, <span … >, …
 
-/** very small similarity score ∈ [0, 1] */
-const similarity = (a: string, b: string) => {
-    const lenA = a.length;
-    const lenB = b.length;
-    if (lenA === 0 && lenB === 0) return 1.0;
-    if (lenA === 0 || lenB === 0) return 0.0; // If one is empty and other is not, similarity is 0
-    const max = Math.max(lenA, lenB);
-    return (max - levenshtein(a, b)) / max;
-};
+const DIACRITIC_RE = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g;
+
+const normalise = (s: string) =>
+    s
+        .replace(TAG_RE, '') // strip any html
+        .replace(TATWEEL_RE, '') // strip tatwīl
+        .replace(DIACRITIC_RE, '') // strip tashkīl
+        .trim();
 
 /** pick the “better” of the two tokens, favouring diacritics */
-const chooseToken = (obsTok: string, suryaTok: string) => {
+const chooseToken = (obsTok: string, suryaTok: string): string => {
     if (obsTok === suryaTok) return obsTok;
+    if (!obsTok) return suryaTok;
+    if (!suryaTok) return obsTok;
 
-    if (!obsTok && suryaTok) return suryaTok; // Obs token doesn't exist (e.g., obs is shorter)
-    if (obsTok && !suryaTok) return obsTok; // Surya token doesn't exist (e.g., surya is shorter)
-    if (!obsTok && !suryaTok) return ''; // Both are empty (shouldn't happen with filter)
+    const a = normalise(obsTok);
+    const b = normalise(suryaTok);
 
-    const sStrippedObs = stripDiacritics(obsTok);
-    const sStrippedSurya = stripDiacritics(suryaTok);
+    // identical after normalisation?  keep obs – it carries tashkīl
+    if (a === b) return obsTok;
 
-    // If one is empty after stripping and the other isn't, prefer the non-empty one's original form
-    if (sStrippedObs.length === 0 && sStrippedSurya.length > 0) return suryaTok;
-    if (sStrippedSurya.length === 0 && sStrippedObs.length > 0) return obsTok;
-
-    const sim = similarity(sStrippedObs, sStrippedSurya);
-
-    if (sim > 0.6) return obsTok; // Prefer observation token if similar (to keep its diacritics)
-    return suryaTok; // Otherwise, Surya's token is considered more likely correct or a fix
+    // otherwise fall back to the old Levenshtein similarity
+    const max = Math.max(a.length, b.length) || 1;
+    const sim = (max - levenshtein(a, b)) / max;
+    return sim > 0.6 ? obsTok : suryaTok;
 };
 
 const HONORIFIC_SYMBOL = 'ﷺ';
 
-export const fixTyposInternal = (obsText: string, suryaText: string): string => {
-    if (!suryaText.includes(HONORIFIC_SYMBOL)) {
-        return obsText;
-    }
+/** splits text → tokens and ensures “ﷺ” is *always* a stand-alone token    */
+const tokenize = (txt: string): string[] => {
+    // 1) drop tags -> leave ONE space so “والثانية(٢)” becomes “والثانية (٢)”
+    let s = txt.replace(HTML_TAG_RE, ' ');
 
-    const suryaToks = suryaText.split(/\s+/).filter((t) => t.length > 0);
-    const obsToks = obsText.split(/\s+/).filter((t) => t.length > 0);
-    const result: string[] = [];
+    // 2) guarantee the honourific is always a stand-alone token
+    s = s.replace(new RegExp(HONORIFIC_SYMBOL, 'g'), ` ${HONORIFIC_SYMBOL} `);
 
-    let i = 0; // Pointer for suryaToks
-    let j = 0; // Pointer for obsToks
+    // 3) collapse runs of whitespace and split
+    return s.trim().split(/\s+/).filter(Boolean);
+};
 
-    while (i < suryaToks.length) {
-        const sTok = suryaToks[i];
-
-        if (sTok.includes(HONORIFIC_SYMBOL)) {
-            // If current Surya token contains the honorific, add it directly from Surya.
-            result.push(sTok);
-            // Only advance Surya pointer. Observation pointer (j) does not advance,
-            // meaning the obs token at index j (if any) is effectively skipped or
-            // considered "replaced" by the honorific. The next Surya token
-            // will be compared against this same obs token obsToks[j].
+const dedup = (toks: string[]): string[] => {
+    const out: string[] = [];
+    for (const tok of toks) {
+        if (out.length && normalise(out[out.length - 1]) === normalise(tok)) {
+            // keep the ‘better’ one (shorter usually means no tatwīl)
+            if (tok.length < out[out.length - 1].length) out[out.length - 1] = tok;
         } else {
-            // Current Surya token is not an honorific.
-            // Compare with the current observation token.
-            const oTok = j < obsToks.length ? obsToks[j] : '';
-            result.push(chooseToken(oTok, sTok));
-            // Advance observation pointer only if there was a token to consume from obsToks.
-            if (j < obsToks.length) {
-                j++;
+            out.push(tok);
+        }
+    }
+    return out;
+};
+
+const dedupBursts = (toks: string[]): string[] => {
+    const out: string[] = [];
+
+    const norm = (t: string) =>
+        t
+            .replace(/\u0640/g, '') // tatwīl
+            .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g, '')
+            .trim();
+
+    for (const tok of toks) {
+        out.push(tok);
+
+        // look for repeats of length 3, 2, or 1 (whichever matches first)
+        for (let k = 3; k >= 1; k--) {
+            if (out.length >= 2 * k) {
+                const a = out
+                    .slice(-2 * k, -k)
+                    .map(norm)
+                    .join(' ');
+                const b = out.slice(-k).map(norm).join(' ');
+                if (a === b) {
+                    // keep the *shorter* version of each token, then drop duplicate
+                    for (let i = 0; i < k; i++) {
+                        const first = out[out.length - 2 * k + i];
+                        const second = out[out.length - k + i];
+                        if (second.length < first.length) out[out.length - 2 * k + i] = second;
+                    }
+                    out.splice(-k); // remove the echo
+                    break;
+                }
             }
         }
-        i++; // Always advance Surya pointer.
+    }
+    return out;
+};
+
+export const fixTyposInternal = (obsText: string, suryaText: string): string => {
+    if (!suryaText.includes(HONORIFIC_SYMBOL)) return obsText;
+
+    const suryaToks = tokenize(suryaText);
+    const obsToks = tokenize(obsText);
+    const merged: string[] = [];
+
+    let j = 0; // pointer in obsToks
+
+    for (const sTok of suryaToks) {
+        if (sTok === HONORIFIC_SYMBOL) {
+            merged.push(HONORIFIC_SYMBOL); // insert the symbol
+            continue; // …but DON’T advance j
+        }
+        const oTok = j < obsToks.length ? obsToks[j] : '';
+        merged.push(chooseToken(oTok, sTok));
+        if (j < obsToks.length) j++; // consume one obs token
     }
 
-    // If there are any remaining tokens in obsToks (because suryaToks was shorter),
-    // append them. These tokens were not compared with any Surya tokens.
-    if (j < obsToks.length) {
-        result.push(...obsToks.slice(j));
-    }
+    // append any genuinely new trailing obs tokens
+    while (j < obsToks.length) merged.push(obsToks[j++]);
 
-    // Your logging for the final combined string
+    const final = dedupBursts(merged).join(' ');
+
+    // ─── debug ───────────────────────────────────────────────────────────────
     console.log('suryaText', suryaText);
+    //console.log('suryaToks', suryaToks);
     console.log('obsText', obsText);
-    console.log('fixed', result.join(' '));
-    console.log();
+    //console.log('obsToks', obsToks);
+    console.log('fixed', final, '\n');
+    // ─────────────────────────────────────────────────────────────────────────
 
-    return result.join(' ');
+    return final;
 };
 
 export const findAndFixTypos = (suryaObservations: Observation[], observations: Observation[]): Observation[] => {
