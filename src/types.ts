@@ -85,11 +85,17 @@ export type OcrResult = {
     readonly rectangles?: BoundingBox[];
 };
 
+export type FixTypoOptions = {
+    readonly typoSymbols: string[];
+    readonly similarityThreshold: number;
+    readonly highSimilarityThreshold: number;
+};
+
 /**
  * Configuration options for OCR result processing and paragraph reconstruction.
  * These options control how text observations are grouped, aligned, and formatted.
  */
-export type RebuildOptions = {
+export type RebuildOptions = Partial<FixTypoOptions> & {
     /**
      * The default DPI to use when the OCR result doesn't provide DPI information.
      * This ensures consistent scaling even with incomplete metadata.

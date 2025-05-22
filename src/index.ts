@@ -50,6 +50,9 @@ export const mapOCRResultToParagraphObservations = (
         footerSymbol,
         pixelTolerance = 5,
         standardDpiX = 300,
+        typoSymbols,
+        highSimilarityThreshold = 0.8,
+        similarityThreshold = 0.6,
         verticalJumpFactor = 2,
         widthTolerance = 0.85,
     }: RebuildOptions = {},
@@ -80,8 +83,12 @@ export const mapOCRResultToParagraphObservations = (
 
     //console.log('observations', observations.length, suryaObservations?.length);
 
-    if (suryaObservations) {
-        observations = findAndFixTypos(suryaObservations, observations);
+    if (typoSymbols && typoSymbols.length > 0 && suryaObservations) {
+        observations = findAndFixTypos(suryaObservations, observations, {
+            typoSymbols,
+            similarityThreshold,
+            highSimilarityThreshold,
+        });
     }
 
     if (!isPoeticLayout(groups)) {

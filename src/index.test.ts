@@ -58,7 +58,7 @@ describe('index', () => {
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];
-            const actual = rebuildParagraphs(ocrData);
+            const actual = rebuildParagraphs(ocrData, { typoSymbols: ['ﷺ'] });
 
             const parsedFile = path.parse(path.join('test', 'mixed', imageFile));
             const expectationFile = Bun.file(path.format({ dir: parsedFile.dir, ext: '.txt', name: parsedFile.name }));
