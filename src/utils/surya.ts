@@ -37,6 +37,7 @@ const HTML_TAG_RE = /<\/?[^>]+>/g; // any tag
 const TATWEEL_RE = /\u0640/g; // ــ
 const DIACRITIC_RE = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g;
 const FOOTNOTE_RE = /^\(?[0-9\u0660-\u0669]+\)?[،\.]?$/; // (٥) ١،
+const EMBEDDED_FOOTNOTE_RE = /\([0-9\u0660-\u0669]+\)/; // “…خاله))(6)” “(٦)”
 
 const normalise = (s: string) => s.replace(TAG_RE, '').replace(TATWEEL_RE, '').replace(DIACRITIC_RE, '').trim();
 
@@ -127,6 +128,14 @@ const chooseColumn = (o: string | null, s: string | null): string[] => {
     // same after normalisation → keep OBS (keeps diacritics)
     if (normalise(o) === normalise(s)) return [o];
 
+    const oHasNote = EMBEDDED_FOOTNOTE_RE.test(o);
+    const sHasNote = EMBEDDED_FOOTNOTE_RE.test(s);
+    if (oHasNote && !sHasNote) return [o]; // keep the one with “(٦)”
+    if (sHasNote && !oHasNote) return [s];
+    if (oHasNote && sHasNote)
+        // both have a note
+        return [o.length <= s.length ? o : s];
+
     // foot-note logic
     if (FOOTNOTE_RE.test(o) && !FOOTNOTE_RE.test(s)) return [o, s];
     if (FOOTNOTE_RE.test(s) && !FOOTNOTE_RE.test(o)) return [s, o];
@@ -145,14 +154,43 @@ const chooseColumn = (o: string | null, s: string | null): string[] => {
 // 5 · Deduplicate bursts (فهــــذِه vs فهذه, trailing echoes, etc.)
 // ---------------------------------------------------------------------------
 const dedupBursts = (toks: string[]): string[] => {
-    const out: string[] = [],
-        same = (a: string, b: string) => similarity(normalise(a), normalise(b)) >= 0.8;
+    const out: string[] = [];
+
+    const sameNorm = (a: string, b: string) => similarity(normalise(a), normalise(b)) >= 0.8;
+
+    const digits = (t: string) => (t.match(/[0-9\u0660-\u0669]+/) || [''])[0];
+
     for (const t of toks) {
-        if (out.length && same(out[out.length - 1], t)) {
-            if (t.length < out[out.length - 1].length) out[out.length - 1] = t;
-        } else {
+        if (!out.length) {
             out.push(t);
+            continue;
         }
+
+        const prev = out[out.length - 1];
+
+        // ── 1) ordinary echoes (فهـــــذه / فهذه, etc.) ───────────────────────
+        if (sameNorm(prev, t)) {
+            if (t.length < prev.length) out[out.length - 1] = t; // keep shorter
+            continue; // swallow echo
+        }
+
+        // ── 2) foot-note marker fused with next word or vice-versa ────────────
+        const prevIsStandAlone = FOOTNOTE_RE.test(prev);
+        const currHasEmbedded = EMBEDDED_FOOTNOTE_RE.test(t);
+        const currIsStandAlone = FOOTNOTE_RE.test(t);
+        const prevHasEmbedded = EMBEDDED_FOOTNOTE_RE.test(prev);
+
+        // (٥)  +  (٥)أخرجه   → keep fused token, drop stand-alone
+        if (prevIsStandAlone && currHasEmbedded && digits(prev) === digits(t)) {
+            out[out.length - 1] = t; // replace with fused version
+            continue;
+        }
+        // (٥)أخرجه + (٥)      → keep fused token, drop trailing stand-alone
+        if (prevHasEmbedded && currIsStandAlone && digits(prev) === digits(t)) {
+            continue; // skip duplicated marker
+        }
+
+        out.push(t);
     }
     return out;
 };
@@ -160,7 +198,7 @@ const dedupBursts = (toks: string[]): string[] => {
 // ---------------------------------------------------------------------------
 // 6 · Core worker
 // ---------------------------------------------------------------------------
-export const fixTyposInternal = (obsText: string, suryaText: string): string => {
+const fixTyposInternal = (obsText: string, suryaText: string): string => {
     if (!suryaText.includes(HONORIFIC_SYMBOL)) return obsText;
 
     const obs = tokenize(obsText);
@@ -172,7 +210,8 @@ export const fixTyposInternal = (obsText: string, suryaText: string): string => 
     // ── debug (comment out in prod) ─────────────────────────────────
     /*console.log('suryaText', suryaText);
     console.log('obsText', obsText);
-    //console.log('obs', obs);
+    console.log('obs', obs);
+    console.log('surya', surya);
     console.log('fixed', final, '\n'); */
     // ───────────────────────────────────────────────────────────────
 
