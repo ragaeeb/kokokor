@@ -10,14 +10,28 @@ const PATTERNS = {
 };
 
 /**
- * Normalizes Arabic text by removing diacritics, tatweel, and basic tags
+ * Normalizes Arabic text by removing diacritics, tatweel marks, and basic HTML tags.
+ * This normalization enables better text comparison by focusing on core characters
+ * while ignoring decorative elements that don't affect meaning.
+ *
+ * @param text - Arabic text to normalize
+ * @returns Normalized text with diacritics, tatweel, and basic tags removed
+ * @example
+ * normalizeArabicText('اَلسَّلَامُ عَلَيْكُمْ') // Returns 'السلام عليكم'
  */
 export const normalizeArabicText = (text: string): string => {
     return text.replace(PATTERNS.basicTag, '').replace(PATTERNS.tatweel, '').replace(PATTERNS.diacritics, '').trim();
 };
 
 /**
- * Extracts digit sequence from text for footnote comparison
+ * Extracts the first sequence of Arabic or Western digits from text.
+ * Used primarily for footnote number comparison to match related footnote elements.
+ *
+ * @param text - Text containing digits to extract
+ * @returns First digit sequence found, or empty string if none found
+ * @example
+ * extractDigits('(٥)أخرجه البخاري') // Returns '٥'
+ * extractDigits('See note (123)') // Returns '123'
  */
 export const extractDigits = (text: string): string => {
     const match = text.match(PATTERNS.arabicDigits);
@@ -25,7 +39,15 @@ export const extractDigits = (text: string): string => {
 };
 
 /**
- * Tokenizes text while preserving honorific symbols and removing HTML
+ * Tokenizes text into individual words while preserving special symbols.
+ * Removes HTML tags, adds spacing around preserved symbols to ensure they
+ * are tokenized separately, then splits on whitespace.
+ *
+ * @param text - Text to tokenize
+ * @param preserveSymbols - Array of symbols that should be tokenized as separate tokens
+ * @returns Array of tokens, or empty array if input is empty/whitespace
+ * @example
+ * tokenizeText('Hello ﷺ world', ['ﷺ']) // Returns ['Hello', 'ﷺ', 'world']
  */
 export const tokenizeText = (text: string, preserveSymbols: string[] = []): string[] => {
     if (!text?.trim()) return [];
@@ -42,7 +64,17 @@ export const tokenizeText = (text: string, preserveSymbols: string[] = []): stri
 };
 
 /**
- * Handles fusion of standalone and embedded footnotes
+ * Handles fusion of standalone and embedded footnotes during token processing.
+ * Detects patterns where standalone footnotes should be merged with embedded ones
+ * or where trailing standalone footnotes should be skipped.
+ *
+ * @param result - Current result array being built
+ * @param previousToken - The previous token in the sequence
+ * @param currentToken - The current token being processed
+ * @returns True if the current token was handled (fused or skipped), false otherwise
+ * @example
+ * // (٥) + (٥)أخرجه → result gets (٥)أخرجه
+ * // (٥)أخرجه + (٥) → (٥) is skipped
  */
 export const handleFootnoteFusion = (result: string[], previousToken: string, currentToken: string): boolean => {
     const prevIsStandalone = PATTERNS.footnoteStandalone.test(previousToken);
@@ -68,7 +100,16 @@ export const handleFootnoteFusion = (result: string[], previousToken: string, cu
 };
 
 /**
- * Handles selection logic for tokens with embedded footnotes
+ * Handles selection logic for tokens with embedded footnotes during alignment.
+ * Prefers tokens that contain embedded footnotes over plain text, and among
+ * tokens with embedded footnotes, prefers the shorter one.
+ *
+ * @param tokenA - First token to compare
+ * @param tokenB - Second token to compare
+ * @returns Array containing selected token(s), or null if no special handling needed
+ * @example
+ * handleFootnoteSelection('text', '(١)text') // Returns ['(١)text']
+ * handleFootnoteSelection('(١)longtext', '(١)text') // Returns ['(١)text']
  */
 export const handleFootnoteSelection = (tokenA: string, tokenB: string): string[] | null => {
     const aHasEmbedded = PATTERNS.footnoteEmbedded.test(tokenA);
@@ -84,7 +125,16 @@ export const handleFootnoteSelection = (tokenA: string, tokenB: string): string[
 };
 
 /**
- * Handles selection logic for standalone footnote tokens
+ * Handles selection logic for standalone footnote tokens during alignment.
+ * Manages cases where one or both tokens are standalone footnotes, preserving
+ * both tokens when one is a footnote and the other is regular text.
+ *
+ * @param tokenA - First token to compare
+ * @param tokenB - Second token to compare
+ * @returns Array containing selected token(s), or null if no special handling needed
+ * @example
+ * handleStandaloneFootnotes('(١)', 'text') // Returns ['(١)', 'text']
+ * handleStandaloneFootnotes('(١)', '(٢)') // Returns ['(١)'] (shorter one)
  */
 export const handleStandaloneFootnotes = (tokenA: string, tokenB: string): string[] | null => {
     const aIsFootnote = PATTERNS.footnoteStandalone.test(tokenA);
