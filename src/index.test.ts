@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 import path from 'node:path';
 
-import type { BoundingBox, Observation, OcrResult } from './types';
+import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
 
 import { rebuildParagraphs } from './index';
+import { mapSuryaPageResultToObservations } from './utils/surya';
 
 /**
  * When set to true, test results will overwrite the expected output files.
@@ -31,16 +32,19 @@ const loadOCRData = async (...only: string[]) => {
     ).json();
     const structures: Record<string, Metadata> = (await Bun.file(path.join('test', 'mixed', 'structures.json')).json())
         .result;
+    const surya: Record<string, SuryaPageOcrResult[]> = await Bun.file(path.join('test', 'mixed', 'surya.json')).json();
     const fileToData: Record<string, OcrResult> = {};
 
     Object.entries(fileToTestData).forEach(([imageFile, ocrResult]) => {
         if (only.length === 0 || only.includes(imageFile)) {
             const structure = structures[imageFile];
+            const [suryaPage] = surya[imageFile.split('.')[0]];
 
             fileToData[imageFile] = {
                 dpi: structure.dpi,
                 horizontalLines: structure.horizontal_lines,
                 observations: ocrResult.observations,
+                alternateObservations: mapSuryaPageResultToObservations(suryaPage),
             };
         }
     });
@@ -54,7 +58,7 @@ describe('index', () => {
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];
-            const actual = rebuildParagraphs(ocrData);
+            const actual = rebuildParagraphs(ocrData, { typoSymbols: ['ﷺ'] });
 
             const parsedFile = path.parse(path.join('test', 'mixed', imageFile));
             const expectationFile = Bun.file(path.format({ dir: parsedFile.dir, ext: '.txt', name: parsedFile.name }));

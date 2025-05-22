@@ -13,7 +13,7 @@
 ![GitHub stars](https://img.shields.io/github/stars/ragaeeb/kokokor?style=social)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ragaeeb/kokokor?utm_source=oss&utm_medium=github&utm_campaign=ragaeeb%2Fkokokor&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs. It helps format unstructured text with appropriate paragraph breaks and optimizes for readability.
+A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs. It helps format unstructured text with appropriate paragraph breaks, optimizes for readability, and includes advanced typo correction capabilities using multiple OCR sources.
 
 ## Features
 
@@ -21,8 +21,12 @@ A lightweight TypeScript library designed to reconstruct paragraphs from OCRed i
 - Handles right-to-left (RTL) text formatting
 - Intelligently identifies paragraph breaks based on vertical spacing and line widths
 - Recognizes poetic layouts and preserves them appropriately
+- **Advanced typo detection and correction** using alignment algorithms between multiple OCR sources
+- **Surya OCR integration** for improved text accuracy and post-processing
 - Supports customizable parameters for different document types
 - Normalizes coordinates to ensure consistent results regardless of source document resolution
+- **Preserves special symbols** (like Arabic religious markers) during typo correction
+- **Handles footnotes** and embedded text elements intelligently
 
 ## Installation
 
@@ -63,7 +67,7 @@ console.log(reconstructedText);
 // This is a new paragraph.
 ```
 
-### Advanced Configuration
+### Advanced Configuration with Typo Correction
 
 ```typescript
 import { mapOCRResultToParagraphObservations, rebuildParagraphs } from 'kokokor';
@@ -75,19 +79,50 @@ const options = {
     verticalJumpFactor: 2, // Factor for identifying paragraph breaks
     widthTolerance: 0.85, // Threshold for identifying "short" lines
     footerSymbol: '---', // Optional symbol for footers
+
+    // Typo correction options
+    typoSymbols: ['ﷺ', '﷽', 'ﷻ'], // Arabic religious symbols to preserve
+    similarityThreshold: 0.7, // Threshold for token alignment
+    highSimilarityThreshold: 0.9, // Threshold for duplicate removal
 };
 
-// Process the OCR result with custom options
-const paragraphObservations = mapOCRResultToParagraphObservations(ocrResult, options);
+// OCR result with alternate observations for typo correction
+const ocrResultWithAlternate = {
+    dpi: { x: 300, y: 300, width: 2480, height: 3508 },
+    observations: [
+        // Primary OCR observations
+        { text: 'Problematic text with typos', bbox: { x: 100, y: 100, width: 300, height: 20 } },
+    ],
+    alternateObservations: [
+        // Surya OCR observations for comparison
+        { text: 'Corrected text without typos', bbox: { x: 100, y: 100, width: 300, height: 20 } },
+    ],
+};
 
-// Or directly get the reconstructed text
-const text = rebuildParagraphs(ocrResult, options);
+// Process with typo correction
+const correctedText = rebuildParagraphs(ocrResultWithAlternate, options);
 ```
 
-### CLI Usage Example
+### Working with Surya OCR Results
 
-```bash
-~/workspace/OCR ar-SA qawaid.jpg
+`kokokor` can handle [surya](https://github.com/VikParuchuri/surya) library output.
+
+```typescript
+import { mapSuryaPageResultToObservations } from 'kokokor';
+
+// Convert Surya OCR format to kokokor observations
+const suryaResult = {
+    text_lines: [
+        {
+            bbox: [100, 100, 400, 120], // [x1, y1, x2, y2] format
+            text: 'Text from Surya OCR',
+            chars: [],
+        },
+    ],
+};
+
+const observations = mapSuryaPageResultToObservations(suryaResult);
+// Now you can use these observations in your OCR result
 ```
 
 ## API Reference
@@ -96,11 +131,11 @@ const text = rebuildParagraphs(ocrResult, options);
 
 #### `rebuildParagraphs(ocr: OcrResult, options?: RebuildOptions): string`
 
-Reconstructs complete paragraph text from OCR results.
+Reconstructs complete paragraph text from OCR results with optional typo correction.
 
 - **Parameters:**
     - `ocr`: The OCR result containing text observations and document metadata
-    - `options`: Optional configuration options
+    - `options`: Optional configuration options (including typo correction settings)
 - **Returns:** A string containing the reconstructed text with paragraphs separated by newlines
 
 #### `mapOCRResultToParagraphObservations(ocr: OcrResult, options?: RebuildOptions): Observation[]`
@@ -109,8 +144,16 @@ Processes OCR result data to identify and reconstruct paragraphs from individual
 
 - **Parameters:**
     - `ocr`: The OCR result containing text observations and document metadata
-    - `options`: Optional configuration options
+    - `options`: Optional configuration options (including typo correction settings)
 - **Returns:** An array of merged observations, where each item represents a complete paragraph
+
+#### `mapSuryaPageResultToObservations(surya: SuryaPageOcrResult): Observation[]`
+
+Converts Surya OCR page results to standardized Observation format.
+
+- **Parameters:**
+    - `surya`: Surya OCR page result containing text lines with bounding boxes
+- **Returns:** Array of observations in standardized format
 
 ### Types
 
@@ -120,6 +163,7 @@ Processes OCR result data to identify and reconstruct paragraphs from individual
 type OcrResult = {
     readonly dpi: BoundingBox;
     readonly observations: Observation[];
+    readonly alternateObservations?: Observation[]; // For typo correction
     readonly horizontalLines?: BoundingBox[];
     readonly rectangles?: BoundingBox[];
 };
@@ -155,8 +199,46 @@ type RebuildOptions = {
     readonly verticalJumpFactor?: number; // Default: 2
     readonly widthTolerance?: number; // Default: 0.85
     readonly footerSymbol?: string; // Default: undefined
+
+    // Typo correction options
+    readonly typoSymbols?: string[]; // Special symbols to preserve
+    readonly similarityThreshold?: number; // Default: 0.6
+    readonly highSimilarityThreshold?: number; // Default: 0.8
 };
 ```
+
+#### `SuryaPageOcrResult`
+
+```typescript
+type SuryaPageOcrResult = {
+    readonly text_lines: {
+        readonly bbox: number[]; // [x1, y1, x2, y2] format
+        readonly text: string;
+        readonly chars: SuryaTextLine[];
+    }[];
+};
+```
+
+#### `FixTypoOptions`
+
+```typescript
+type FixTypoOptions = {
+    readonly typoSymbols: string[]; // Symbols to preserve during correction
+    readonly similarityThreshold: number; // Token alignment threshold (0.0-1.0)
+    readonly highSimilarityThreshold: number; // Duplicate detection threshold (0.0-1.0)
+};
+```
+
+## Typo Correction Algorithm
+
+The typo correction feature uses advanced text alignment algorithms to compare OCR results from different sources:
+
+1. **Token Alignment**: Uses the Needleman-Wunsch sequence alignment algorithm to align tokens between original and reference OCR results
+2. **Symbol Preservation**: Automatically preserves important symbols (like Arabic religious markers) during correction
+3. **Footnote Handling**: Intelligently handles embedded footnotes and standalone footnote references
+4. **Similarity-Based Selection**: Chooses the best token based on configurable similarity thresholds
+5. **Duplicate Removal**: Post-processes results to remove highly similar duplicate tokens
+6. **Normalization**: Applies text normalization while preserving original formatting and diacritics
 
 ## Contributing
 
