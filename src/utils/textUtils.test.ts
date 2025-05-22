@@ -147,7 +147,7 @@ describe('textUtils', () => {
             expect(result).toEqual(['(١)text']);
         });
 
-        it('should prefer plain text when first has embedded footnote', () => {
+        it('should prefer embedded footnote when first argument contains it', () => {
             const result = handleFootnoteSelection('(١)text', 'text');
             expect(result).toEqual(['(١)text']);
         });

@@ -166,13 +166,10 @@ export type RebuildOptions = Partial<FixTypoOptions> & {
 
 type SuryaTextLine = {
     /** the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format. (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner. */
-    readonly bbox: number[];
+    readonly bbox: [number, number, number, number];
 
     /** the text in the line */
     readonly text: string;
-
-    /** the individual characters in the line */
-    readonly chars: SuryaTextLine[];
 };
 
 export type SuryaPageOcrResult = {

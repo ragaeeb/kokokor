@@ -4,7 +4,6 @@ import {
     calculateSimilarity,
     areSimilarAfterNormalization,
     calculateAlignmentScore,
-    backtrackAlignment,
     alignTokenSequences,
 } from './similarity';
 
