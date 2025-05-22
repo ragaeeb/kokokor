@@ -77,7 +77,7 @@ export type OcrResult = {
     /**
      * Matching observations extracted from surya for typo corrections.
      */
-    readonly suryaObservations?: Observation[];
+    readonly alternateObservations?: Observation[];
 
     /**
      * Optional array of rectangle coordinates to process chapter titles.

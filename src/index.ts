@@ -71,24 +71,22 @@ export const mapOCRResultToParagraphObservations = (
         pixelTolerance,
     });
 
-    const { observations: suryaObservations } = ocr.suryaObservations
-        ? alignAndAdjustObservations(ocr.suryaObservations, {
-              dpiWidth: ocr.dpi.width,
-              standardDpiX,
-              dpiY,
-              dpiX,
-              pixelTolerance,
-          })
-        : {};
-
-    //console.log('observations', observations.length, suryaObservations?.length);
-
-    if (typoSymbols && typoSymbols.length > 0 && suryaObservations) {
-        observations = findAndFixTypos(suryaObservations, observations, {
-            typoSymbols,
-            similarityThreshold,
-            highSimilarityThreshold,
-        });
+    if (typoSymbols && typoSymbols.length > 0 && ocr.alternateObservations) {
+        observations = findAndFixTypos(
+            alignAndAdjustObservations(ocr.alternateObservations, {
+                dpiWidth: ocr.dpi.width,
+                standardDpiX,
+                dpiY,
+                dpiX,
+                pixelTolerance,
+            }).observations,
+            observations,
+            {
+                typoSymbols,
+                similarityThreshold,
+                highSimilarityThreshold,
+            },
+        );
     }
 
     if (!isPoeticLayout(groups)) {

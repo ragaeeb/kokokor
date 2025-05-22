@@ -44,7 +44,7 @@ const loadOCRData = async (...only: string[]) => {
                 dpi: structure.dpi,
                 horizontalLines: structure.horizontal_lines,
                 observations: ocrResult.observations,
-                suryaObservations: mapSuryaPageResultToObservations(suryaPage),
+                alternateObservations: mapSuryaPageResultToObservations(suryaPage),
             };
         }
     });
