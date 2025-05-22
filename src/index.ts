@@ -1,9 +1,32 @@
-import type { OcrResult, RebuildOptions } from './types';
+import type { Observation, OcrResult, RebuildOptions } from './types';
 
 import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './utils/grouping';
 import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/indexing';
 import { isPoeticLayout } from './utils/layout';
 import { applyFooter, mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
+import { findAndFixTypos } from './utils/surya';
+
+const alignAndAdjustObservations = (
+    obs: Observation[],
+    {
+        dpiWidth,
+        dpiX,
+        standardDpiX,
+        dpiY,
+        pixelTolerance,
+    }: { dpiWidth: number; dpiX: number; standardDpiX: number; dpiY: number; pixelTolerance: number },
+) => {
+    let observations = mapOcrResultToRTLObservations(obs, dpiWidth);
+    observations = normalizeObservationsX(observations, dpiX, standardDpiX);
+
+    let marked = indexObservationsAsLines(observations, dpiY, pixelTolerance);
+    //assertIndicesContinuous(marked); // TODO: Remove, purely for catching bugs early during alpha stage
+
+    let groups = groupObservationsByIndex(marked);
+    groups = sortGroupsHorizontally(groups);
+
+    return { observations: mergeGroupedObservations(groups), groups };
+};
 
 /**
  * Processes OCR result data to identify and reconstruct paragraphs from individual text observations.
@@ -37,19 +60,32 @@ export const mapOCRResultToParagraphObservations = (
 
     const { x: dpiX = fallbackDPI, y: dpiY = fallbackDPI } = ocr.dpi;
 
-    let observations = mapOcrResultToRTLObservations(ocr.observations, ocr.dpi.width);
-    observations = normalizeObservationsX(observations, dpiX, standardDpiX);
+    let { observations, groups } = alignAndAdjustObservations(ocr.observations, {
+        dpiWidth: ocr.dpi.width,
+        standardDpiX,
+        dpiY,
+        dpiX,
+        pixelTolerance,
+    });
 
-    let marked = indexObservationsAsLines(observations, dpiY, pixelTolerance);
-    //assertIndicesContinuous(marked); // TODO: Remove, purely for catching bugs early during alpha stage
+    const { observations: suryaObservations } = ocr.suryaObservations
+        ? alignAndAdjustObservations(ocr.suryaObservations, {
+              dpiWidth: ocr.dpi.width,
+              standardDpiX,
+              dpiY,
+              dpiX,
+              pixelTolerance,
+          })
+        : {};
 
-    let groups = groupObservationsByIndex(marked);
-    groups = sortGroupsHorizontally(groups);
+    //console.log('observations', observations.length, suryaObservations?.length);
 
-    observations = mergeGroupedObservations(groups);
+    if (suryaObservations) {
+        findAndFixTypos(suryaObservations, observations);
+    }
 
     if (!isPoeticLayout(groups)) {
-        marked = indexObservationsAsParagraphs(observations, verticalJumpFactor, widthTolerance);
+        const marked = indexObservationsAsParagraphs(observations, verticalJumpFactor, widthTolerance);
         //assertIndicesContinuous(marked);
 
         groups = groupObservationsByIndex(marked);

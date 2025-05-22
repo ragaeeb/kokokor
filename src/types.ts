@@ -75,6 +75,11 @@ export type OcrResult = {
     readonly observations: Observation[];
 
     /**
+     * Matching observations extracted from surya for typo corrections.
+     */
+    readonly suryaObservations?: Observation[];
+
+    /**
      * Optional array of rectangle coordinates to process chapter titles.
      */
     readonly rectangles?: BoundingBox[];
@@ -126,4 +131,19 @@ export type RebuildOptions = {
      * @default 0.85
      */
     readonly widthTolerance?: number;
+};
+
+type SuryaTextLine = {
+    /** the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format. (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner. */
+    readonly bbox: number[];
+
+    /** the text in the line */
+    readonly text: string;
+
+    /** the individual characters in the line */
+    readonly chars: SuryaTextLine[];
+};
+
+export type SuryaPageOcrResult = {
+    readonly text_lines: SuryaTextLine[];
 };
