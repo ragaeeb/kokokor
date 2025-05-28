@@ -33,7 +33,7 @@ export const isPoeticLayout = (lines: Observation[][], expectedCols = 2, minPoet
 export const filterHorizontalLinesOutsideRectangles = (
     rectangles: BoundingBox[],
     horizontalLines: BoundingBox[],
-    tolerance: number = 5,
+    tolerance: number,
 ) => {
     return horizontalLines.filter((line) => {
         // Check if this line is contained within any rectangle
@@ -50,7 +50,7 @@ export const filterHorizontalLinesOutsideRectangles = (
  * @param tolerance - The pixel tolerance for boundary checking (default: 5)
  * @returns True if the inner bounding box is contained within the outer bounding box
  */
-export const isBoundingBoxContained = (inner: BoundingBox, outer: BoundingBox, tolerance: number = 5): boolean => {
+export const isBoundingBoxContained = (inner: BoundingBox, outer: BoundingBox, tolerance: number): boolean => {
     const outerLeft = outer.x - tolerance;
     const outerRight = outer.x + outer.width + tolerance;
     const outerTop = outer.y - tolerance;

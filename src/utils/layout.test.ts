@@ -54,6 +54,7 @@ describe('layout', () => {
                     },
                 ],
                 horizontalLines,
+                5,
             );
 
             expect(actual).toEqual([horizontalLines.at(-1)]);

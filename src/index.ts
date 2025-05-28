@@ -1,9 +1,9 @@
-import type { Observation, OcrResult, RebuildOptions } from './types';
+import type { BuildTextBoxOptions, Observation, OcrResult, RebuildOptions, TextBlock } from './types';
 
 import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './utils/grouping';
 import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/indexing';
-import { isPoeticLayout } from './utils/layout';
-import { applyFooter, mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
+import { filterHorizontalLinesOutsideRectangles, isBoundingBoxContained, isPoeticLayout } from './utils/layout';
+import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
 import { findAndFixTypos } from './utils/typos';
 
 const alignAndAdjustObservations = (
@@ -41,13 +41,12 @@ const alignAndAdjustObservations = (
  *
  * @param ocr - The OCR result containing text observations and document metadata
  * @param options - Configuration options that control the paragraph reconstruction process
- * @returns An array of merged observations, where each item represents a complete paragraph
+ * @returns An array of text blocks, where each item represents a complete paragraph along with metadata.
  */
-export const mapOCRResultToParagraphObservations = (
+export const buildTextBlocksFromOCR = (
     ocr: OcrResult,
     {
         fallbackDPI = 72,
-        footerSymbol,
         pixelTolerance = 5,
         standardDpiX = 300,
         typoSymbols,
@@ -55,10 +54,10 @@ export const mapOCRResultToParagraphObservations = (
         similarityThreshold = 0.6,
         verticalJumpFactor = 2,
         widthTolerance = 0.85,
-    }: RebuildOptions = {},
+    }: BuildTextBoxOptions = {},
 ) => {
     if (ocr.observations.length === 0) {
-        return ocr.observations;
+        return [];
     }
 
     const { x: dpiX = fallbackDPI, y: dpiY = fallbackDPI } = ocr.dpi;
@@ -97,20 +96,52 @@ export const mapOCRResultToParagraphObservations = (
         observations = mergeGroupedObservations(groups);
     }
 
-    if (footerSymbol && ocr.horizontalLines?.at(-1)) {
-        observations = applyFooter(observations, {
-            bbox: ocr.horizontalLines.at(-1)!,
-            text: footerSymbol,
-        });
+    let { rectangles = [], horizontalLines = [] } = ocr;
+
+    if (rectangles && horizontalLines) {
+        horizontalLines = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
     }
 
-    return observations;
+    const lastHorizontalLine = horizontalLines.at(-1);
+
+    const textBlocks: TextBlock[] = observations.map((o) => {
+        const isObservationInsideRectangle = rectangles.some((rectangle) =>
+            isBoundingBoxContained(o.bbox, rectangle, pixelTolerance),
+        );
+
+        return {
+            text: o.text,
+            ...(isObservationInsideRectangle && { isHeading: true }),
+            ...(lastHorizontalLine && o.bbox.y > lastHorizontalLine.y && { isFootnote: true }),
+        };
+    });
+
+    return textBlocks;
+};
+
+export const mapTextBlocksToParagraphs = (textBlocks: TextBlock[], footerSymbol?: string) => {
+    let isAtLeastOneFootnoteHit = false;
+
+    const paragraphs = textBlocks.flatMap((t) => {
+        if (footerSymbol && t.isFootnote && !isAtLeastOneFootnoteHit) {
+            isAtLeastOneFootnoteHit = true;
+            return [footerSymbol, t.text];
+        }
+
+        if (t.isHeading) {
+            return [t.text, ''];
+        }
+
+        return [t.text];
+    });
+
+    return paragraphs.join('\n');
 };
 
 /**
  * Reconstructs complete paragraph text from OCR results.
  *
- * This is a convenience function that processes the OCR data using mapOCRResultToParagraphObservations,
+ * This is a convenience function that processes the OCR data using buildTextBlocksFromOCR,
  * then extracts and joins the text content from each paragraph with newlines to create a
  * formatted text document.
  *
@@ -119,9 +150,7 @@ export const mapOCRResultToParagraphObservations = (
  * @returns A string containing the reconstructed text with paragraphs separated by newlines
  */
 export const rebuildParagraphs = (ocr: OcrResult, options?: RebuildOptions) => {
-    return mapOCRResultToParagraphObservations(ocr, options)
-        .map((o) => o.text)
-        .join('\n');
+    return mapTextBlocksToParagraphs(buildTextBlocksFromOCR(ocr, options), options?.footerSymbol);
 };
 
 export * from './types';

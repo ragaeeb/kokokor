@@ -41,31 +41,6 @@ export const normalizeObservationsX = (observations: Observation[], dpi: number,
 };
 
 /**
- * Inserts a footer observation at the appropriate position based on vertical position.
- *
- * This function finds the correct position to insert a footer based on y-coordinates
- * and adds it just after the last observation that appears above the footer position.
- *
- * @param observations - Array of existing text observations
- * @param footer - The footer observation to be inserted
- * @returns A new array of observations with the footer inserted at the correct position
- */
-export const applyFooter = (observations: Observation[], footer: Observation) => {
-    const insertAfter = observations.findLastIndex((o) => o.bbox.y < footer.bbox.y);
-
-    if (insertAfter >= 0) {
-        const observationsWithFooter = observations.slice();
-        observationsWithFooter.splice(insertAfter + 1, 0, footer);
-
-        return observationsWithFooter;
-    }
-
-    console.warn('Footer not found');
-
-    return observations;
-};
-
-/**
  * Purely for helping debug by simplifying an observation by narrowing down its floating point and text.
  * @param observation The observation to simplify.
  */

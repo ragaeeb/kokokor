@@ -3,20 +3,8 @@ import path from 'node:path';
 
 import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
 
-import { mapOCRResultToParagraphObservations, rebuildParagraphs } from './index';
+import { rebuildParagraphs } from './index';
 import { mapSuryaPageResultToObservations } from './utils/surya';
-
-/**
- * When set to true, test results will overwrite the expected output files.
- * WARNING: Only enable during test data updates, should be false for regular testing.
- */
-const WRITE_RESULT = false;
-
-/**
- * Optional array of filenames to restrict testing to specific files.
- * Leave empty to test all available files.
- */
-const ONLY_FILES = [];
 
 type Metadata = {
     dpi: BoundingBox;
@@ -26,7 +14,9 @@ type Metadata = {
 
 type OcrTestResults = { observations: Observation[] };
 
-const loadOCRData = async (...only: string[]) => {
+const loadOCRData = async () => {
+    const only = process.env.ONLY?.split(',').map((f) => f.trim()) || [];
+
     const fileToTestData: Record<string, OcrTestResults> = await Bun.file(
         path.join('test', 'mixed', 'ocr.json'),
     ).json();
@@ -55,30 +45,22 @@ const loadOCRData = async (...only: string[]) => {
 
 describe('index', () => {
     describe('rebuildParagraphs', async () => {
-        const testData = await loadOCRData(...ONLY_FILES);
+        const testData = await loadOCRData();
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];
-            const actual = rebuildParagraphs(ocrData, { typoSymbols: ['ﷺ'] });
+            const actual = rebuildParagraphs(ocrData, { typoSymbols: ['ﷺ'], footerSymbol: '___' });
 
             const parsedFile = path.parse(path.join('test', 'mixed', imageFile));
             const expectationFile = Bun.file(path.format({ dir: parsedFile.dir, ext: '.txt', name: parsedFile.name }));
 
-            if (WRITE_RESULT) {
+            if (process.env.WRITE_SNAPSHOTS === 'true') {
+                console.log(`Writing snapshot: ${expectationFile.name}`);
                 await expectationFile.write(actual);
             }
 
             const expected = await expectationFile.text();
             expect(actual).toEqual(expected);
-        });
-    });
-
-    describe('mapOCRResultToParagraphObservations', () => {
-        it.only('should detect the rectangle and lines', async () => {
-            const ocrData = (await loadOCRData('4.jpg'))['4.jpg'];
-            console.log('rectangles', ocrData.rectangles);
-            console.log('horizontalLines', ocrData.horizontalLines);
-            const actual = mapOCRResultToParagraphObservations(ocrData);
         });
     });
 });
