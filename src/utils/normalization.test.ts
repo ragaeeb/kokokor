@@ -1,6 +1,6 @@
 import { describe, expect, it, mock } from 'bun:test';
 
-import { applyFooter, mapOcrResultToRTLObservations, normalizeObservationsX } from './normalization';
+import { mapOcrResultToRTLObservations, normalizeObservationsX } from './normalization';
 
 describe('normalization', () => {
     describe('mapOcrResultToRTLObservations', () => {
@@ -60,63 +60,6 @@ describe('normalization', () => {
         it('should handle empty observations array', () => {
             const result = normalizeObservationsX([], 72, 300);
             expect(result).toEqual([]);
-        });
-    });
-
-    describe('applyFooter', () => {
-        it('should insert footer after the last observation with y less than footer.y', () => {
-            const observations = [
-                { bbox: { height: 10, width: 50, x: 20, y: 100 }, text: 'Paragraph 1' },
-                { bbox: { height: 10, width: 50, x: 20, y: 200 }, text: 'Paragraph 2' },
-                { bbox: { height: 10, width: 50, x: 20, y: 300 }, text: 'Paragraph 3' },
-            ];
-
-            const footer = { bbox: { height: 5, width: 100, x: 20, y: 250 }, text: 'Footer' };
-
-            const result = applyFooter(observations, footer);
-
-            expect(result).toEqual([
-                { bbox: { height: 10, width: 50, x: 20, y: 100 }, text: 'Paragraph 1' },
-                { bbox: { height: 10, width: 50, x: 20, y: 200 }, text: 'Paragraph 2' },
-                { bbox: { height: 5, width: 100, x: 20, y: 250 }, text: 'Footer' },
-                { bbox: { height: 10, width: 50, x: 20, y: 300 }, text: 'Paragraph 3' },
-            ]);
-        });
-
-        it('should not insert footer if no observation has y less than footer.y', () => {
-            const observations = [
-                { bbox: { height: 10, width: 50, x: 20, y: 300 }, text: 'Paragraph 1' },
-                { bbox: { height: 10, width: 50, x: 20, y: 400 }, text: 'Paragraph 2' },
-            ];
-
-            const footer = { bbox: { height: 5, width: 100, x: 20, y: 200 }, text: 'Footer' };
-
-            const originalWarn = console.warn;
-            const mockWarn = mock(() => {});
-            console.warn = mockWarn;
-
-            const result = applyFooter(observations, footer);
-
-            expect(result).toEqual(observations);
-            expect(mockWarn).toHaveBeenCalledWith('Footer not found');
-
-            console.warn = originalWarn;
-        });
-
-        it('should handle empty observations array', () => {
-            const observations = [];
-            const footer = { bbox: { height: 5, width: 100, x: 20, y: 200 }, text: 'Footer' };
-
-            const originalWarn = console.warn;
-            const mockWarn = mock(() => {});
-            console.warn = mockWarn;
-
-            const result = applyFooter(observations, footer);
-
-            expect(result).toEqual([]);
-            expect(mockWarn).toHaveBeenCalledWith('Footer not found');
-
-            console.warn = originalWarn;
         });
     });
 });

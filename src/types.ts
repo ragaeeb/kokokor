@@ -53,6 +53,14 @@ export type Observation = {
     readonly text: string;
 };
 
+export type TextBlock = {
+    readonly text: string;
+
+    readonly isHeading?: boolean;
+
+    readonly isFootnote?: boolean;
+};
+
 /**
  * Represents the complete result of an OCR operation on a document.
  * Contains the document dimensions, observations, and optional structural elements.
@@ -120,20 +128,13 @@ export type FixTypoOptions = {
  * Configuration options for OCR result processing and paragraph reconstruction.
  * These options control how text observations are grouped, aligned, and formatted.
  */
-export type RebuildOptions = Partial<FixTypoOptions> & {
+export type BuildTextBoxOptions = Partial<FixTypoOptions> & {
     /**
      * The default DPI to use when the OCR result doesn't provide DPI information.
      * This ensures consistent scaling even with incomplete metadata.
      * @default 72
      */
     readonly fallbackDPI?: number;
-
-    /**
-     * Symbol or text to use as a footer marker when horizontal lines are detected.
-     * When provided, this text will be inserted below the last horizontal line in the document.
-     * @default undefined
-     */
-    readonly footerSymbol?: string;
 
     /**
      * Vertical tolerance in pixels (at 72 DPI) for line detection.
@@ -162,6 +163,15 @@ export type RebuildOptions = Partial<FixTypoOptions> & {
      * @default 0.85
      */
     readonly widthTolerance?: number;
+};
+
+export type RebuildOptions = BuildTextBoxOptions & {
+    /**
+     * Symbol or text to use as a footer marker when horizontal lines are detected.
+     * When provided, this text will be inserted below the last horizontal line in the document.
+     * @default undefined
+     */
+    readonly footerSymbol?: string;
 };
 
 type SuryaTextLine = {

@@ -27,6 +27,7 @@ A lightweight TypeScript library designed to reconstruct paragraphs from OCRed i
 - Normalizes coordinates to ensure consistent results regardless of source document resolution
 - **Preserves special symbols** (like Arabic religious markers) during typo correction
 - **Handles footnotes** and embedded text elements intelligently
+- **Chapter headings** detection and inserting appropriate spacing around them.
 
 ## Installation
 
@@ -70,7 +71,7 @@ console.log(reconstructedText);
 ### Advanced Configuration with Typo Correction
 
 ```typescript
-import { mapOCRResultToParagraphObservations, rebuildParagraphs } from 'kokokor';
+import { rebuildParagraphs } from 'kokokor';
 
 const options = {
     fallbackDPI: 72, // Default DPI when not provided in OCR result
@@ -138,7 +139,7 @@ Reconstructs complete paragraph text from OCR results with optional typo correct
     - `options`: Optional configuration options (including typo correction settings)
 - **Returns:** A string containing the reconstructed text with paragraphs separated by newlines
 
-#### `mapOCRResultToParagraphObservations(ocr: OcrResult, options?: RebuildOptions): Observation[]`
+#### `buildTextBlocksFromOCR(ocr: OcrResult, options?: BuildTextBoxOptions): TextBlock[]`
 
 Processes OCR result data to identify and reconstruct paragraphs from individual text observations.
 
@@ -239,6 +240,44 @@ The typo correction feature uses advanced text alignment algorithms to compare O
 4. **Similarity-Based Selection**: Chooses the best token based on configurable similarity thresholds
 5. **Duplicate Removal**: Post-processes results to remove highly similar duplicate tokens
 6. **Normalization**: Applies text normalization while preserving original formatting and diacritics
+
+## Testing
+
+The project includes comprehensive integration tests for OCR paragraph reconstruction. You can control test behavior using environment variables for convenience during development.
+
+### Running Tests
+
+```bash
+# Run all tests with coverage
+bun test
+
+# Write/update test snapshots
+bun run test:write
+
+# Test only specific files
+ONLY="1.jpg,2.jpg" bun test
+
+# Combine snapshot writing with specific files
+ONLY="example.jpg" bun run test:write
+```
+
+### Test Environment Variables
+
+- `WRITE_SNAPSHOTS=true` - Updates expected test output files instead of comparing against them
+- `ONLY="file1,file2"` - Restricts testing to specific image files (comma-separated)
+
+### Examples
+
+```bash
+# Update snapshots for all tests
+WRITE_SNAPSHOTS=true bun test
+
+# Test and update snapshots for specific files only
+WRITE_SNAPSHOTS=true ONLY="complex-document.jpg,simple-text.jpg" bun test
+
+# Quick test of a single file during development
+ONLY="debug-case.jpg" bun test
+```
 
 ## Contributing
 
