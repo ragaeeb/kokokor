@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
 
-import { rebuildParagraphs } from './index';
+import { mapOCRResultToParagraphObservations, rebuildParagraphs } from './index';
 import { mapSuryaPageResultToObservations } from './utils/surya';
 
 /**
@@ -42,7 +42,8 @@ const loadOCRData = async (...only: string[]) => {
 
             fileToData[imageFile] = {
                 dpi: structure.dpi,
-                horizontalLines: structure.horizontal_lines,
+                ...(structure.horizontal_lines && { horizontalLines: structure.horizontal_lines }),
+                ...(structure.rectangles && { rectangles: structure.rectangles }),
                 observations: ocrResult.observations,
                 alternateObservations: mapSuryaPageResultToObservations(suryaPage),
             };
@@ -69,6 +70,15 @@ describe('index', () => {
 
             const expected = await expectationFile.text();
             expect(actual).toEqual(expected);
+        });
+    });
+
+    describe('mapOCRResultToParagraphObservations', () => {
+        it.only('should detect the rectangle and lines', async () => {
+            const ocrData = (await loadOCRData('4.jpg'))['4.jpg'];
+            console.log('rectangles', ocrData.rectangles);
+            console.log('horizontalLines', ocrData.horizontalLines);
+            const actual = mapOCRResultToParagraphObservations(ocrData);
         });
     });
 });
