@@ -27,7 +27,7 @@ A lightweight TypeScript library designed to reconstruct paragraphs from OCRed i
 - Normalizes coordinates to ensure consistent results regardless of source document resolution
 - **Preserves special symbols** (like Arabic religious markers) during typo correction
 - **Handles footnotes** and embedded text elements intelligently
-- **Chapter headings** and adding spaces based on headers.
+- **Chapter headings** detection and inserting appropriate spacing around them.
 
 ## Installation
 
@@ -71,7 +71,7 @@ console.log(reconstructedText);
 ### Advanced Configuration with Typo Correction
 
 ```typescript
-import { mapOCRResultToParagraphObservations, rebuildParagraphs } from 'kokokor';
+import { rebuildParagraphs } from 'kokokor';
 
 const options = {
     fallbackDPI: 72, // Default DPI when not provided in OCR result
@@ -139,7 +139,7 @@ Reconstructs complete paragraph text from OCR results with optional typo correct
     - `options`: Optional configuration options (including typo correction settings)
 - **Returns:** A string containing the reconstructed text with paragraphs separated by newlines
 
-#### `mapOCRResultToParagraphObservations(ocr: OcrResult, options?: RebuildOptions): Observation[]`
+#### `buildTextBlocksFromOCR(ocr: OcrResult, options?: BuildTextBoxOptions): TextBlock[]`
 
 Processes OCR result data to identify and reconstruct paragraphs from individual text observations.
 

@@ -98,7 +98,7 @@ export const buildTextBlocksFromOCR = (
 
     let { rectangles = [], horizontalLines = [] } = ocr;
 
-    if (rectangles && horizontalLines) {
+    if (rectangles.length > 0 && horizontalLines.length > 0) {
         horizontalLines = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
     }
 
