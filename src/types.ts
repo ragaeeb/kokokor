@@ -53,11 +53,20 @@ export type Observation = {
     readonly text: string;
 };
 
+/**
+ * A reconstructed text paragraph from the raw OCR data.
+ */
 export type TextBlock = {
+    /** The text associated with this text block */
     readonly text: string;
 
+    /** If the text is centered on the page. This is true if there is at least some padding around the text and it does not span up to the margins. */
+    readonly isCentered?: boolean;
+
+    /** If the text represents a heading. This is generally associated with texts that are surrounded in rectangles. */
     readonly isHeading?: boolean;
 
+    /** If this text is a footnote. This is generally associated with texts appearing below the last horizontal line. */
     readonly isFootnote?: boolean;
 };
 
@@ -125,45 +134,69 @@ export type FixTypoOptions = {
 };
 
 /**
+ * Configuration options for determining if an observation is centered.
+ */
+export type CenteringOptions = {
+    /**
+     * The tolerance for center point alignment as a ratio of image width.
+     * For example, 0.05 means the observation's center can be within 5% of the page width
+     * from the true center and still be considered centered.
+     *
+     * @default 0.05
+     */
+    readonly centerToleranceRatio: number;
+
+    /**
+     * The minimum margin required on each side as a ratio of image width.
+     * For example, 0.1 means there must be at least 10% of the page width
+     * as whitespace on both the left and right sides of the observation.
+     *
+     * @default 0.1
+     */
+    readonly minMarginRatio: number;
+};
+
+/**
  * Configuration options for OCR result processing and paragraph reconstruction.
  * These options control how text observations are grouped, aligned, and formatted.
  */
-export type BuildTextBoxOptions = Partial<FixTypoOptions> & {
-    /**
-     * The default DPI to use when the OCR result doesn't provide DPI information.
-     * This ensures consistent scaling even with incomplete metadata.
-     * @default 72
-     */
-    readonly fallbackDPI?: number;
+export type BuildTextBoxOptions = Partial<FixTypoOptions> &
+    Partial<CenteringOptions> & {
+        /**
+         * The default DPI to use when the OCR result doesn't provide DPI information.
+         * This ensures consistent scaling even with incomplete metadata.
+         * @default 72
+         */
+        readonly fallbackDPI?: number;
 
-    /**
-     * Vertical tolerance in pixels (at 72 DPI) for line detection.
-     * Higher values will be more lenient in grouping text with vertical offsets into the same line.
-     * @default 5
-     */
-    readonly pixelTolerance?: number;
+        /**
+         * Vertical tolerance in pixels (at 72 DPI) for line detection.
+         * Higher values will be more lenient in grouping text with vertical offsets into the same line.
+         * @default 5
+         */
+        readonly pixelTolerance?: number;
 
-    /**
-     * The target DPI for x-coordinate normalization.
-     * Used to ensure consistent alignment thresholds regardless of source document resolution.
-     * @default 300
-     */
-    readonly standardDpiX?: number;
+        /**
+         * The target DPI for x-coordinate normalization.
+         * Used to ensure consistent alignment thresholds regardless of source document resolution.
+         * @default 300
+         */
+        readonly standardDpiX?: number;
 
-    /**
-     * Factor determining how much larger a vertical gap needs to be to indicate a paragraph break.
-     * A value of 2 means a gap twice as large as the previous gap will start a new paragraph.
-     * @default 2
-     */
-    readonly verticalJumpFactor?: number;
+        /**
+         * Factor determining how much larger a vertical gap needs to be to indicate a paragraph break.
+         * A value of 2 means a gap twice as large as the previous gap will start a new paragraph.
+         * @default 2
+         */
+        readonly verticalJumpFactor?: number;
 
-    /**
-     * Fraction of maximum line width below which a line is considered "short" (0-1).
-     * Short lines typically indicate paragraph endings and trigger paragraph breaks.
-     * @default 0.85
-     */
-    readonly widthTolerance?: number;
-};
+        /**
+         * Fraction of maximum line width below which a line is considered "short" (0-1).
+         * Short lines typically indicate paragraph endings and trigger paragraph breaks.
+         * @default 0.85
+         */
+        readonly widthTolerance?: number;
+    };
 
 export type RebuildOptions = BuildTextBoxOptions & {
     /**

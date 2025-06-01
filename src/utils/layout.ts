@@ -1,10 +1,55 @@
-import type { BoundingBox, Observation } from '@/types';
+import type { BoundingBox, CenteringOptions, Observation } from '@/types';
 
-export const isObservationCentered = (observation: Observation, imageWidth: number, toleranceRatio = 0.05) => {
+/**
+ * Determines if an observation is centered on the page with sufficient whitespace around it.
+ *
+ * An observation is considered centered if:
+ * 1. Its center point is within tolerance of the page center
+ * 2. It has sufficient margins (whitespace) on both left and right sides
+ *
+ * This prevents false positives where wide observations span most of the page
+ * but happen to have their center point near the page center.
+ *
+ * @param observation - The observation to check for centering
+ * @param imageWidth - The total width of the page/image in pixels
+ * @param options - Configuration options for centering criteria
+ * @param options.centerToleranceRatio - The tolerance for center point alignment as a ratio of image width (default: 0.05 = 5%)
+ * @param options.minMarginRatio - The minimum margin required on each side as a ratio of image width (default: 0.1 = 10%)
+ * @returns True if the observation is centered with sufficient whitespace, false otherwise
+ *
+ * @example
+ * ```typescript
+ * // Using default options
+ * isObservationCentered({ bbox: { width: 286, x: 298 } }, 960, { centerToleranceRatio: 0.05, minMarginRatio: 0.1 }) // true
+ *
+ * // Using custom options for stricter centering
+ * isObservationCentered(
+ *   { bbox: { width: 286, x: 298 } },
+ *   960,
+ *   { centerToleranceRatio: 0.02, minMarginRatio: 0.15 }
+ * )
+ *
+ * // A wide observation spanning most of the page - should return false
+ * isObservationCentered({ bbox: { width: 2026, x: 232 } }, 2481, { centerToleranceRatio: 0.05, minMarginRatio: 0.1 }) // false
+ * ```
+ */
+export const isObservationCentered = (observation: Observation, imageWidth: number, options: CenteringOptions) => {
     const pageCenter = imageWidth / 2;
-    const tolPx = imageWidth * toleranceRatio;
+    const tolPx = imageWidth * options.centerToleranceRatio;
     const centerX = observation.bbox.x + observation.bbox.width / 2;
-    return Math.abs(centerX - pageCenter) <= tolPx;
+
+    // Check if the center point is near the page center
+    const isCenterPointCentered = Math.abs(centerX - pageCenter) <= tolPx;
+
+    // Check if there's sufficient whitespace on both sides
+    // An observation should have meaningful margins to be considered "centered"
+    const leftMargin = observation.bbox.x;
+    const rightMargin = imageWidth - (observation.bbox.x + observation.bbox.width);
+    const minMargin = imageWidth * options.minMarginRatio;
+
+    const hasSufficientMargins = leftMargin >= minMargin && rightMargin >= minMargin;
+
+    return isCenterPointCentered && hasSufficientMargins;
 };
 
 /**
@@ -47,7 +92,7 @@ export const filterHorizontalLinesOutsideRectangles = (
  * Checks if a bounding box is contained within another bounding box with tolerance.
  * @param inner - The bounding box to check if it's inside
  * @param outer - The bounding box to check if it contains the inner box
- * @param tolerance - The pixel tolerance for boundary checking (default: 5)
+ * @param tolerance - The pixel tolerance for boundary checking
  * @returns True if the inner bounding box is contained within the outer bounding box
  */
 export const isBoundingBoxContained = (inner: BoundingBox, outer: BoundingBox, tolerance: number): boolean => {

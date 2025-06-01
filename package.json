@@ -1,6 +1,6 @@
 {
     "name": "kokokor",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "author": "Ragaeeb Haq",
     "main": "dist/index.js",
     "devDependencies": {
@@ -20,7 +20,7 @@
     },
     "description": "A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs.",
     "engines": {
-        "bun": ">=1.2.14",
+        "bun": ">=1.2.15",
         "node": ">=22.0.0"
     },
     "files": [

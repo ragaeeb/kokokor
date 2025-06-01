@@ -2,7 +2,12 @@ import type { BuildTextBoxOptions, Observation, OcrResult, RebuildOptions, TextB
 
 import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './utils/grouping';
 import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/indexing';
-import { filterHorizontalLinesOutsideRectangles, isBoundingBoxContained, isPoeticLayout } from './utils/layout';
+import {
+    filterHorizontalLinesOutsideRectangles,
+    isBoundingBoxContained,
+    isObservationCentered,
+    isPoeticLayout,
+} from './utils/layout';
 import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
 import { findAndFixTypos } from './utils/typos';
 
@@ -49,6 +54,8 @@ export const buildTextBlocksFromOCR = (
         fallbackDPI = 72,
         pixelTolerance = 5,
         standardDpiX = 300,
+        centerToleranceRatio = 0.05,
+        minMarginRatio = 0.1,
         typoSymbols,
         highSimilarityThreshold = 0.8,
         similarityThreshold = 0.6,
@@ -103,14 +110,18 @@ export const buildTextBlocksFromOCR = (
     }
 
     const lastHorizontalLine = horizontalLines.at(-1);
+    const centerOptions = { centerToleranceRatio, minMarginRatio };
 
     const textBlocks: TextBlock[] = observations.map((o) => {
         const isObservationInsideRectangle = rectangles.some((rectangle) =>
             isBoundingBoxContained(o.bbox, rectangle, pixelTolerance),
         );
 
+        const isCentered = isObservationCentered(o, ocr.dpi.width, centerOptions);
+
         return {
             text: o.text,
+            ...(isCentered && { isCentered: true }),
             ...(isObservationInsideRectangle && { isHeading: true }),
             ...(lastHorizontalLine && o.bbox.y > lastHorizontalLine.y && { isFootnote: true }),
         };
