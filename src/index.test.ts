@@ -3,8 +3,7 @@ import path from 'node:path';
 
 import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
 
-import { rebuildParagraphs } from './index';
-import { mapSuryaPageResultToObservations } from './utils/surya';
+import { rebuildParagraphs, mapSuryaPageResultToObservations } from './index';
 
 type Metadata = {
     dpi: BoundingBox;

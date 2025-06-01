@@ -59,6 +59,30 @@ describe('layout', () => {
 
             expect(actual).toEqual([horizontalLines.at(-1)]);
         });
+
+        it('should not keep any horizontal lines', () => {
+            const actual = filterHorizontalLinesOutsideRectangles(
+                [
+                    {
+                        x: 864,
+                        y: 16,
+                        width: 770,
+                        height: 201,
+                    },
+                ],
+                [
+                    {
+                        x: 878,
+                        y: 18,
+                        width: 736,
+                        height: 9,
+                    },
+                ],
+                5,
+            );
+
+            expect(actual).toBeEmpty();
+        });
     });
 
     describe('filterObservationsInsideRectangles', () => {

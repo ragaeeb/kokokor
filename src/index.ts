@@ -154,3 +154,7 @@ export const rebuildParagraphs = (ocr: OcrResult, options?: RebuildOptions) => {
 };
 
 export * from './types';
+
+export { extractDigits, normalizeArabicText } from './utils/textUtils';
+export { mapSuryaPageResultToObservations } from './utils/surya';
+export { calculateSimilarity, areSimilarAfterNormalization } from './utils/similarity';
