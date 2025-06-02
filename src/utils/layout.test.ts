@@ -43,6 +43,15 @@ describe('layout', () => {
                 }),
             ).toBeFalse();
         });
+
+        it('should be false if the observation spans more than one line', () => {
+            expect(
+                isObservationCentered({ bbox: { width: 1857, x: 300 } }, 2481, {
+                    centerToleranceRatio: 0.05,
+                    minMarginRatio: 0.2,
+                }),
+            ).toBeFalse();
+        });
     });
 
     describe('filterHorizontalLinesOutsideRectangles', () => {

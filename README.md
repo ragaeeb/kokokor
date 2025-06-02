@@ -28,6 +28,7 @@ A lightweight TypeScript library designed to reconstruct paragraphs from OCRed i
 - **Preserves special symbols** (like Arabic religious markers) during typo correction
 - **Handles footnotes** and embedded text elements intelligently
 - **Chapter headings** detection and inserting appropriate spacing around them.
+- **Alignment** detection for easily figuring out additional headings of sections.
 
 ## Installation
 

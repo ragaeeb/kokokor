@@ -1,7 +1,7 @@
 import type { BuildTextBoxOptions, Observation, OcrResult, RebuildOptions, TextBlock } from './types';
 
 import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './utils/grouping';
-import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/indexing';
+import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/marking';
 import {
     filterHorizontalLinesOutsideRectangles,
     isBoundingBoxContained,
@@ -55,7 +55,7 @@ export const buildTextBlocksFromOCR = (
         pixelTolerance = 5,
         standardDpiX = 300,
         centerToleranceRatio = 0.05,
-        minMarginRatio = 0.1,
+        minMarginRatio = 0.2,
         typoSymbols,
         highSimilarityThreshold = 0.8,
         similarityThreshold = 0.6,
@@ -120,10 +120,11 @@ export const buildTextBlocksFromOCR = (
         const isCentered = isObservationCentered(o, ocr.dpi.width, centerOptions);
 
         return {
-            text: o.text,
             ...(isCentered && { isCentered: true }),
-            ...(isObservationInsideRectangle && { isHeading: true }),
+            ...(o.confidence && o.confidence < 1 && { isEdited: true }),
             ...(lastHorizontalLine && o.bbox.y > lastHorizontalLine.y && { isFootnote: true }),
+            ...(isObservationInsideRectangle && { isHeading: true }),
+            text: o.text,
         };
     });
 

@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
 
-import { rebuildParagraphs, mapSuryaPageResultToObservations } from './index';
+import { rebuildParagraphs, mapSuryaPageResultToObservations, buildTextBlocksFromOCR } from './index';
 
 type Metadata = {
     dpi: BoundingBox;
@@ -60,6 +60,22 @@ describe('index', () => {
 
             const expected = await expectationFile.text();
             expect(actual).toEqual(expected);
+        });
+    });
+
+    describe('buildTextBlocksFromOCR', () => {
+        it('should return the text blocks for ', async () => {
+            const testData = await loadOCRData();
+            const ocrData = testData['1.jpg'];
+            const actual = buildTextBlocksFromOCR(ocrData, { typoSymbols: ['ﷺ'] });
+
+            expect(actual).toHaveLength(5);
+
+            expect(actual.filter((t) => t.isEdited)).toHaveLength(2); // 2 of them only should have had the typo fixed
+            expect(actual[0].isEdited && actual[2].isEdited).toBeTrue();
+
+            expect(actual.filter((t) => t.isFootnote)).toHaveLength(2); // only last 2 are footnotes
+            expect(actual.at(-1)!.isFootnote && actual.at(-2)!.isFootnote).toBeTrue();
         });
     });
 });

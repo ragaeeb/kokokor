@@ -16,7 +16,7 @@ export const groupObservationsByIndex = (marked: IndexedObservation[]) => {
             groups[m.index] = [];
         }
 
-        groups[m.index].push({ bbox: m.bbox, text: m.text });
+        groups[m.index].push({ bbox: m.bbox, text: m.text, ...(m.confidence && { confidence: m.confidence }) });
     }
 
     return groups;
@@ -83,6 +83,8 @@ export const mergeGroupedObservations = (grouped: Observation[][]) => {
             combinedText += ' ' + text;
         }
 
+        const correctedObservation = group.find((o) => o.confidence);
+
         // Create the merged observation
         result.push({
             bbox: {
@@ -91,6 +93,7 @@ export const mergeGroupedObservations = (grouped: Observation[][]) => {
                 x: minX,
                 y: minY,
             },
+            ...(correctedObservation && { confidence: correctedObservation.confidence }),
             text: combinedText,
         });
     }

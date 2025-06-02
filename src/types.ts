@@ -42,6 +42,9 @@ export type IndexedObservation = Observation & {
  * Contains the text content and its bounding box coordinates within the document.
  */
 export type Observation = {
+    /** Confidence for accuracy of OCR. */
+    readonly confidence?: number;
+
     /**
      * The bounding box defining the position and dimensions of the text in the document.
      */
@@ -57,17 +60,20 @@ export type Observation = {
  * A reconstructed text paragraph from the raw OCR data.
  */
 export type TextBlock = {
-    /** The text associated with this text block */
-    readonly text: string;
-
     /** If the text is centered on the page. This is true if there is at least some padding around the text and it does not span up to the margins. */
     readonly isCentered?: boolean;
+
+    /** If any of the observations in this block had a typo that was automatically patched, this will be set to true */
+    readonly isEdited?: boolean;
 
     /** If the text represents a heading. This is generally associated with texts that are surrounded in rectangles. */
     readonly isHeading?: boolean;
 
     /** If this text is a footnote. This is generally associated with texts appearing below the last horizontal line. */
     readonly isFootnote?: boolean;
+
+    /** The text associated with this text block */
+    readonly text: string;
 };
 
 /**

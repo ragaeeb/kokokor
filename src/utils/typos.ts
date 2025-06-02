@@ -68,7 +68,9 @@ const selectBestTokens = (
  * @returns Array of tokens with duplicates removed and footnotes fused
  */
 const removeDuplicateTokens = (tokens: string[], highSimilarityThreshold: number): string[] => {
-    if (tokens.length === 0) return tokens;
+    if (tokens.length === 0) {
+        return tokens;
+    }
 
     const result: string[] = [];
 
@@ -78,7 +80,7 @@ const removeDuplicateTokens = (tokens: string[], highSimilarityThreshold: number
             continue;
         }
 
-        const previousToken = result[result.length - 1];
+        const previousToken = result.at(-1)!;
 
         // Handle ordinary echoes (similar tokens)
         if (areSimilarAfterNormalization(previousToken, currentToken, highSimilarityThreshold)) {
@@ -115,8 +117,13 @@ const processTextAlignment = (originalText: string, suryaText: string, options: 
     const suryaTokens = tokenizeText(suryaText, options.typoSymbols);
 
     // Handle empty inputs
-    if (originalTokens.length === 0) return suryaText;
-    if (suryaTokens.length === 0) return originalText;
+    if (originalTokens.length === 0) {
+        return suryaText;
+    }
+
+    if (suryaTokens.length === 0) {
+        return originalText;
+    }
 
     // Align token sequences
     const alignedPairs = alignTokenSequences(
@@ -166,6 +173,7 @@ export const findAndFixTypos = (
 
         return {
             ...observation,
+            confidence: 0.5,
             text: processTextAlignment(observation.text, suryaObservation.text, options),
         };
     });

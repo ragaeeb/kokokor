@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 
-import { indexObservationsAsLines, indexObservationsAsParagraphs } from './indexing';
+import { indexObservationsAsLines, indexObservationsAsParagraphs } from './marking';
 
-describe('indexing', () => {
+describe('marking', () => {
     describe('indexObservationsAsLines', () => {
         it('should assign the same line index to observations within vertical threshold', () => {
             const observations = [
