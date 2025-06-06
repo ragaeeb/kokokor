@@ -11,17 +11,17 @@ import {
 import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
 import { findAndFixTypos } from './utils/typos';
 
-const alignAndAdjustObservations = (
+export const alignAndAdjustObservations = (
     obs: Observation[],
     {
-        dpiWidth,
-        dpiX,
-        standardDpiX,
-        dpiY,
-        pixelTolerance,
-    }: { dpiWidth: number; dpiX: number; standardDpiX: number; dpiY: number; pixelTolerance: number },
+        imageWidth,
+        dpiX = 72,
+        standardDpiX = 300,
+        dpiY = 72,
+        pixelTolerance = 5,
+    }: { imageWidth: number; dpiX?: number; standardDpiX?: number; dpiY?: number; pixelTolerance?: number },
 ) => {
-    let observations = mapOcrResultToRTLObservations(obs, dpiWidth);
+    let observations = mapOcrResultToRTLObservations(obs, imageWidth);
     observations = normalizeObservationsX(observations, dpiX, standardDpiX);
 
     let marked = indexObservationsAsLines(observations, dpiY, pixelTolerance);
@@ -56,7 +56,7 @@ export const buildTextBlocksFromOCR = (
         standardDpiX = 300,
         centerToleranceRatio = 0.05,
         minMarginRatio = 0.2,
-        typoSymbols,
+        typoSymbols = [],
         highSimilarityThreshold = 0.8,
         similarityThreshold = 0.6,
         verticalJumpFactor = 2,
@@ -70,29 +70,19 @@ export const buildTextBlocksFromOCR = (
     const { x: dpiX = fallbackDPI, y: dpiY = fallbackDPI } = ocr.dpi;
 
     let { observations, groups } = alignAndAdjustObservations(ocr.observations, {
-        dpiWidth: ocr.dpi.width,
+        imageWidth: ocr.dpi.width,
         standardDpiX,
         dpiY,
         dpiX,
         pixelTolerance,
     });
 
-    if (typoSymbols && typoSymbols.length > 0 && ocr.alternateObservations) {
-        observations = findAndFixTypos(
-            alignAndAdjustObservations(ocr.alternateObservations, {
-                dpiWidth: ocr.dpi.width,
-                standardDpiX,
-                dpiY,
-                dpiX,
-                pixelTolerance,
-            }).observations,
-            observations,
-            {
-                typoSymbols,
-                similarityThreshold,
-                highSimilarityThreshold,
-            },
-        );
+    if (typoSymbols.length > 0 && ocr.alternateObservations?.length) {
+        observations = findAndFixTypos(ocr.alternateObservations, observations, {
+            typoSymbols,
+            similarityThreshold,
+            highSimilarityThreshold,
+        });
     }
 
     if (!isPoeticLayout(groups)) {
@@ -167,6 +157,6 @@ export const rebuildParagraphs = (ocr: OcrResult, options?: RebuildOptions) => {
 
 export * from './types';
 
-export { extractDigits, normalizeArabicText } from './utils/textUtils';
-export { mapSuryaPageResultToObservations } from './utils/surya';
+export { extractDigits, normalizeArabicText, PATTERNS } from './utils/textUtils';
+export { mapSuryaPageResultToObservations, mapSuryaBoundingBox } from './utils/surya';
 export { calculateSimilarity, areSimilarAfterNormalization } from './utils/similarity';

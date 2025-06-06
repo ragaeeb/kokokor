@@ -16,12 +16,20 @@ describe('typos', () => {
         });
 
         it('should throw error for mismatched array lengths', () => {
-            const suryaObs = [createObservation('test')];
-            const originalObs = [createObservation('test'), createObservation('another')];
+            const suryaObs = [createObservation('رسول')];
+            const originalObs = [createObservation('رسول'), createObservation('عليه')];
 
             expect(() => findAndFixTypos(suryaObs, originalObs, defaultOptions)).toThrow(
                 'The two observation arrays must have the same length',
             );
+        });
+
+        it('should filter out observations which are purely artifacts', () => {
+            const suryaObs = [createObservation('عليه')];
+            const originalObs = [createObservation('عليه'), createObservation('.')];
+
+            const result = findAndFixTypos(suryaObs, originalObs, defaultOptions);
+            expect(result).toEqual(suryaObs);
         });
 
         it('should return original observation when no typo symbols present', () => {

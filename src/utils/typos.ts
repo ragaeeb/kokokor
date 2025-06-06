@@ -5,6 +5,7 @@ import {
     handleFootnoteSelection,
     handleStandaloneFootnotes,
     normalizeArabicText,
+    PATTERNS,
     tokenizeText,
 } from './textUtils';
 
@@ -158,14 +159,27 @@ export const findAndFixTypos = (
     observations: Observation[],
     options: FixTypoOptions,
 ): Observation[] => {
+    let suryaObs = suryaObservations;
+    let appleObs = observations;
+
     if (suryaObservations.length !== observations.length) {
-        throw new Error('The two observation arrays must have the same length');
+        // sometimes this can happen due to random artifacts per line
+        suryaObs = suryaObs.filter((o) => o.text.match(PATTERNS.arabicLettersAndDigits));
+        appleObs = observations.filter((o) => o.text.match(PATTERNS.arabicLettersAndDigits));
+
+        if (suryaObs.length !== appleObs.length) {
+            throw new Error('The two observation arrays must have the same length');
+        }
+
+        if (suryaObs.length === 0) {
+            throw new Error('The observations are empty after sanitization.');
+        }
     }
 
     const typoSymbolsRegex = new RegExp(options.typoSymbols.join('|'));
 
-    return observations.map((observation, index) => {
-        const suryaObservation = suryaObservations[index];
+    return appleObs.map((observation, index) => {
+        const suryaObservation = suryaObs[index];
 
         if (!typoSymbolsRegex.test(suryaObservation.text)) {
             return observation;

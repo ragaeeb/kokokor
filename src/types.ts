@@ -213,14 +213,21 @@ export type RebuildOptions = BuildTextBoxOptions & {
     readonly footerSymbol?: string;
 };
 
+/** the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format. (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner. */
+export type SuryaBoundingBox = [number, number, number, number];
+
 type SuryaTextLine = {
     /** the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format. (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner. */
-    readonly bbox: [number, number, number, number];
+    readonly bbox: SuryaBoundingBox;
 
     /** the text in the line */
     readonly text: string;
 };
 
 export type SuryaPageOcrResult = {
+    readonly image_bbox: SuryaBoundingBox;
+
+    readonly page: number;
+
     readonly text_lines: SuryaTextLine[];
 };

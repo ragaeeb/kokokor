@@ -7,7 +7,7 @@ import { Observation, SuryaPageOcrResult } from '@/types';
  * @param box - Array containing [x1, y1, x2, y2] coordinates
  * @returns Bounding box object with x, y, width, and height properties
  */
-const mapBoundingBox = (box: number[]) => {
+export const mapSuryaBoundingBox = (box: number[]) => {
     const [x1, y1, x2, y2] = box;
     return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
 };
@@ -21,5 +21,5 @@ const mapBoundingBox = (box: number[]) => {
  * @returns Array of observations in standardized format
  */
 export const mapSuryaPageResultToObservations = (surya: SuryaPageOcrResult): Observation[] => {
-    return surya.text_lines.map((line) => ({ bbox: mapBoundingBox(line.bbox), text: line.text }));
+    return surya.text_lines.map((line) => ({ bbox: mapSuryaBoundingBox(line.bbox), text: line.text }));
 };

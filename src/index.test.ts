@@ -3,7 +3,12 @@ import path from 'node:path';
 
 import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
 
-import { rebuildParagraphs, mapSuryaPageResultToObservations, buildTextBlocksFromOCR } from './index';
+import {
+    rebuildParagraphs,
+    mapSuryaPageResultToObservations,
+    buildTextBlocksFromOCR,
+    alignAndAdjustObservations,
+} from './index';
 
 type Metadata = {
     dpi: BoundingBox;
@@ -29,12 +34,18 @@ const loadOCRData = async () => {
             const structure = structures[imageFile];
             const [suryaPage] = surya[imageFile.split('.')[0]];
 
+            const suryaObservations = mapSuryaPageResultToObservations(suryaPage);
+
             fileToData[imageFile] = {
                 dpi: structure.dpi,
                 ...(structure.horizontal_lines && { horizontalLines: structure.horizontal_lines }),
                 ...(structure.rectangles && { rectangles: structure.rectangles }),
                 observations: ocrResult.observations,
-                alternateObservations: mapSuryaPageResultToObservations(suryaPage),
+                alternateObservations: alignAndAdjustObservations(suryaObservations, {
+                    imageWidth: structure.dpi.width,
+                    dpiX: structure.dpi.x,
+                    dpiY: structure.dpi.y,
+                }).observations,
             };
         }
     });
