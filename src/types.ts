@@ -1,8 +1,4 @@
-/**
- * Represents a rectangular bounding box with position and dimensions.
- * Used to define the location and size of text elements and structural components.
- */
-export type BoundingBox = {
+export type Size = {
     /**
      * The height of the bounding box.
      */
@@ -12,7 +8,13 @@ export type BoundingBox = {
      * The width of the bounding box.
      */
     readonly width: number;
+};
 
+/**
+ * Represents a rectangular bounding box with position and dimensions.
+ * Used to define the location and size of text elements and structural components.
+ */
+export type BoundingBox = Size & {
     /**
      * The x-coordinate of the top-left corner of the bounding box.
      * This coordinate may be normalized depending on text direction.
@@ -137,6 +139,8 @@ export type FixTypoOptions = {
      * @example 0.95 // Removes tokens that are 95% or more similar
      */
     readonly highSimilarityThreshold: number;
+
+    log?(message: string): void;
 };
 
 /**
@@ -174,6 +178,12 @@ export type BuildTextBoxOptions = Partial<FixTypoOptions> &
          * @default 72
          */
         readonly fallbackDPI?: number;
+
+        /**
+         * The ratio used to consider what a line is based on the vertical proximity.
+         * @default 0.49
+         */
+        readonly lineHeightFactor?: number;
 
         /**
          * Vertical tolerance in pixels (at 72 DPI) for line detection.
@@ -224,10 +234,17 @@ type SuryaTextLine = {
     readonly text: string;
 };
 
+/**
+ * Results from the Surya OCR engine.
+ * See more info at https://github.com/datalab-to/surya?tab=readme-ov-file#ocr-text-recognition
+ */
 export type SuryaPageOcrResult = {
+    /** The bbox for the image in (x1, y1, x2, y2) format. (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner. All line bboxes will be contained within this bbox. */
     readonly image_bbox: SuryaBoundingBox;
 
+    /** The page number in the file */
     readonly page: number;
 
+    /** The detected text and bounding boxes for each line */
     readonly text_lines: SuryaTextLine[];
 };

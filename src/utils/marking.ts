@@ -1,6 +1,5 @@
-import type { IndexedObservation, Observation } from '@/types';
-
-const LINE_HEIGHT_FACTOR = 0.49;
+import type { IndexedObservation, Observation, Size } from '@/types';
+import { PTS_TO_INCHES } from './constants';
 
 /**
  * Groups observations into lines based on vertical proximity.
@@ -13,11 +12,17 @@ const LINE_HEIGHT_FACTOR = 0.49;
  * @param observations - Array of OCR observations to be grouped into lines
  * @param dpi - Document DPI (dots per inch), used to scale tolerance values appropriately
  * @param pixelTolerance - Additional vertical tolerance in pixels at 72 DPI
+ * @param lineHeightFactor
  * @returns Array of observations with index properties indicating their line assignments
  */
-export const indexObservationsAsLines = (observations: Observation[], dpi: number, pixelTolerance: number) => {
+export const indexObservationsAsLines = (
+    observations: Observation[],
+    dpi: number,
+    pixelTolerance: number,
+    lineHeightFactor: number,
+) => {
     // how many device‐pixels of slack at this DPI?
-    const effectiveYTolerance = pixelTolerance * (dpi / 72);
+    const effectiveYTolerance = pixelTolerance * (dpi / PTS_TO_INCHES);
     const byY = observations.toSorted((a, b) => a.bbox.y - b.bbox.y);
 
     const marked: IndexedObservation[] = [];
@@ -30,7 +35,7 @@ export const indexObservationsAsLines = (observations: Observation[], dpi: numbe
         const obs = byY[i];
         const dy = obs.bbox.y - prev.bbox.y;
 
-        const baseThresh = Math.max(prev.bbox.height, obs.bbox.height) * LINE_HEIGHT_FACTOR;
+        const baseThresh = Math.max(prev.bbox.height, obs.bbox.height) * lineHeightFactor;
         const threshold = baseThresh + effectiveYTolerance;
 
         if (dy > threshold) {
@@ -42,6 +47,19 @@ export const indexObservationsAsLines = (observations: Observation[], dpi: numbe
     }
 
     return marked.sort((a, b) => (a.index !== b.index ? a.index - b.index : a.bbox.y - b.bbox.y));
+};
+
+/**
+ * Utility function to calculate the DPI based on the image size and original PDF size.
+ * @param imageSize The size of the image.
+ * @param pdfSize The size of the PDF the image was exported from.
+ * @returns The x and y DPI values.
+ */
+export const calculateDPI = (imageSize: Size, pdfSize: Size) => {
+    const x = imageSize.width / (pdfSize.width / PTS_TO_INCHES);
+    const y = imageSize.height / (pdfSize.height / PTS_TO_INCHES);
+
+    return { x, y };
 };
 
 /**

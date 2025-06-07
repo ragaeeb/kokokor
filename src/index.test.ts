@@ -18,9 +18,7 @@ type Metadata = {
 
 type OcrTestResults = { observations: Observation[] };
 
-const loadOCRData = async () => {
-    const only = process.env.ONLY?.split(',').map((f) => f.trim()) || [];
-
+const loadOCRData = async (only: string[] = []) => {
     const fileToTestData: Record<string, OcrTestResults> = await Bun.file(
         path.join('test', 'mixed', 'ocr.json'),
     ).json();
@@ -55,7 +53,7 @@ const loadOCRData = async () => {
 
 describe('index', () => {
     describe('rebuildParagraphs', async () => {
-        const testData = await loadOCRData();
+        const testData = await loadOCRData(process.env.ONLY?.split(',').map((f) => f.trim()));
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];

@@ -1,6 +1,6 @@
 export const PATTERNS = {
     arabicDigits: /[0-9\u0660-\u0669]+/,
-    arabicLettersAndDigits: /[\u0621-\u063A\u0641-\u064A\u0660-\u0669]+/g,
+    arabicLettersAndDigits: /[0-9\u0621-\u063A\u0641-\u064A\u0660-\u0669]+/g,
     basicTag: /<\/?[a-z][^>]*?>/gi,
     diacritics: /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g,
     footnoteEmbedded: /\([0-9\u0660-\u0669]+\)/,

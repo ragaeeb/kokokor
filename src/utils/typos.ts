@@ -144,6 +144,13 @@ const processTextAlignment = (originalText: string, suryaText: string, options: 
 };
 
 /**
+ * Filters noisy observations which are non-Arabic letters and digits.
+ * @param o Observation to be filtered for noise.
+ * @returns Truthy if the observation is valid or falsy if it is not.
+ */
+const filterNoisyObservations = (o: Observation) => o.text.match(PATTERNS.arabicLettersAndDigits);
+
+/**
  * Main function to find and fix typos in observation arrays using Surya reference.
  * Compares original OCR observations with Surya OCR observations and applies
  * typo correction only to observations that contain specified typo symbols.
@@ -159,29 +166,47 @@ export const findAndFixTypos = (
     observations: Observation[],
     options: FixTypoOptions,
 ): Observation[] => {
-    let suryaObs = suryaObservations;
-    let appleObs = observations;
+    if (options.log) {
+        options.log(
+            `suryaObservations.length: ${suryaObservations.length}, observations.length: ${observations.length}`,
+        );
+    }
 
     if (suryaObservations.length !== observations.length) {
-        // sometimes this can happen due to random artifacts per line
-        suryaObs = suryaObs.filter((o) => o.text.match(PATTERNS.arabicLettersAndDigits));
-        appleObs = observations.filter((o) => o.text.match(PATTERNS.arabicLettersAndDigits));
+        suryaObservations = suryaObservations.filter(filterNoisyObservations);
+        observations = observations.filter(filterNoisyObservations);
 
-        if (suryaObs.length !== appleObs.length) {
-            throw new Error('The two observation arrays must have the same length');
+        if (suryaObservations.length !== observations.length) {
+            throw new Error(
+                `The two observation arrays must have the same length: suryaObservations: ${suryaObservations.length}, observations.length: ${observations.length}`,
+            );
         }
 
-        if (suryaObs.length === 0) {
+        if (suryaObservations.length === 0) {
             throw new Error('The observations are empty after sanitization.');
         }
     }
 
     const typoSymbolsRegex = new RegExp(options.typoSymbols.join('|'));
 
-    return appleObs.map((observation, index) => {
-        const suryaObservation = suryaObs[index];
+    return observations.map((observation, index) => {
+        const suryaObservation = suryaObservations[index];
+        const isSimilar = areSimilarAfterNormalization(
+            suryaObservation.text,
+            observation.text,
+            options.similarityThreshold,
+        );
+
+        if (!isSimilar && options.log) {
+            options.log(`suryaObservation: ${suryaObservation.text}`);
+            options.log(`observation: ${observation.text}\n`);
+        }
 
         if (!typoSymbolsRegex.test(suryaObservation.text)) {
+            if (!isSimilar) {
+                return { ...observation, confidence: 0.4 };
+            }
+
             return observation;
         }
 

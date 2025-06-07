@@ -10,21 +10,30 @@ import {
 } from './utils/layout';
 import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
 import { findAndFixTypos } from './utils/typos';
+import { PTS_TO_INCHES } from './utils/constants';
 
 export const alignAndAdjustObservations = (
     obs: Observation[],
     {
         imageWidth,
-        dpiX = 72,
+        dpiX = PTS_TO_INCHES,
         standardDpiX = 300,
-        dpiY = 72,
+        lineHeightFactor = 0.49,
+        dpiY = PTS_TO_INCHES,
         pixelTolerance = 5,
-    }: { imageWidth: number; dpiX?: number; standardDpiX?: number; dpiY?: number; pixelTolerance?: number },
+    }: {
+        imageWidth: number;
+        dpiX?: number;
+        standardDpiX?: number;
+        dpiY?: number;
+        pixelTolerance?: number;
+        lineHeightFactor?: number;
+    },
 ) => {
     let observations = mapOcrResultToRTLObservations(obs, imageWidth);
     observations = normalizeObservationsX(observations, dpiX, standardDpiX);
 
-    let marked = indexObservationsAsLines(observations, dpiY, pixelTolerance);
+    let marked = indexObservationsAsLines(observations, dpiY, pixelTolerance, lineHeightFactor);
     //assertIndicesContinuous(marked); // TODO: Remove, purely for catching bugs early during alpha stage
 
     let groups = groupObservationsByIndex(marked);
@@ -51,11 +60,12 @@ export const alignAndAdjustObservations = (
 export const buildTextBlocksFromOCR = (
     ocr: OcrResult,
     {
-        fallbackDPI = 72,
+        fallbackDPI = PTS_TO_INCHES,
         pixelTolerance = 5,
         standardDpiX = 300,
         centerToleranceRatio = 0.05,
         minMarginRatio = 0.2,
+        lineHeightFactor = 0.49,
         typoSymbols = [],
         highSimilarityThreshold = 0.8,
         similarityThreshold = 0.6,
@@ -75,6 +85,7 @@ export const buildTextBlocksFromOCR = (
         dpiY,
         dpiX,
         pixelTolerance,
+        lineHeightFactor,
     });
 
     if (typoSymbols.length > 0 && ocr.alternateObservations?.length) {
@@ -160,3 +171,4 @@ export * from './types';
 export { extractDigits, normalizeArabicText, PATTERNS } from './utils/textUtils';
 export { mapSuryaPageResultToObservations, mapSuryaBoundingBox } from './utils/surya';
 export { calculateSimilarity, areSimilarAfterNormalization } from './utils/similarity';
+export { calculateDPI } from './utils/marking';

@@ -12,7 +12,7 @@ describe('marking', () => {
                 { bbox: { height: 20, width: 100, x: 10, y: 52 }, text: 'Still second line' }, // Close to previous, same line
             ];
 
-            const indexed = indexObservationsAsLines(observations, 72, 5);
+            const indexed = indexObservationsAsLines(observations, 72, 5, 0.49);
 
             expect(indexed[0].index).toBe(0);
             expect(indexed[1].index).toBe(0); // Same line as first
@@ -80,6 +80,7 @@ describe('marking', () => {
                 ],
                 72,
                 5,
+                0.49,
             );
 
             expect(actual).toEqual([
@@ -206,6 +207,7 @@ describe('marking', () => {
                 ],
                 72,
                 5,
+                0.49,
             );
 
             expect(actual).toEqual([
@@ -275,7 +277,7 @@ describe('marking', () => {
         it('should handle single observation', () => {
             const observations = [{ bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'Single observation' }];
 
-            const result = indexObservationsAsLines(observations, 72, 5);
+            const result = indexObservationsAsLines(observations, 72, 5, 0.49);
             expect(result).toEqual([
                 { bbox: { height: 20, width: 100, x: 10, y: 10 }, index: 0, text: 'Single observation' },
             ]);
@@ -288,7 +290,7 @@ describe('marking', () => {
                 { bbox: { height: 10, width: 100, x: 10, y: 60 }, text: 'Far from previous' }, // Beyond threshold
             ];
 
-            const indexed = indexObservationsAsLines(observations, 72, 5);
+            const indexed = indexObservationsAsLines(observations, 72, 5, 0.49);
 
             expect(indexed[0].index).toBe(0);
             expect(indexed[1].index).toBe(0); // Same line due to tall height
@@ -303,7 +305,7 @@ describe('marking', () => {
                 { bbox: { height: 20, width: 100, x: 120, y: 80 }, text: 'Second line, first y' },
             ];
 
-            const indexed = indexObservationsAsLines(observations, 72, 5);
+            const indexed = indexObservationsAsLines(observations, 72, 5, 0.49);
 
             // Should be sorted by line then y
             expect(indexed[0].text).toBe('First line, first y');
