@@ -2,10 +2,10 @@ import { normalizeArabicText } from './textUtils';
 
 // Alignment scoring constants
 const ALIGNMENT_SCORES = {
-    PERFECT_MATCH: 2,
-    SOFT_MATCH: 1,
     GAP_PENALTY: -1,
     MISMATCH_PENALTY: -2,
+    PERFECT_MATCH: 2,
+    SOFT_MATCH: 1,
 };
 
 /**
@@ -89,7 +89,7 @@ export const calculateSimilarity = (textA: string, textB: string): number => {
  * @example
  * areSimilarAfterNormalization('السَّلام', 'السلام', 0.9) // Returns true
  */
-export const areSimilarAfterNormalization = (textA: string, textB: string, threshold: number): boolean => {
+export const areSimilarAfterNormalization = (textA: string, textB: string, threshold: number = 0.6): boolean => {
     const normalizedA = normalizeArabicText(textA);
     const normalizedB = normalizeArabicText(textB);
     return calculateSimilarity(normalizedA, normalizedB) >= threshold;
@@ -134,12 +134,12 @@ export const calculateAlignmentScore = (
     return ALIGNMENT_SCORES.MISMATCH_PENALTY;
 };
 
-type AlignmentCell = {
-    score: number;
-    direction: 'diagonal' | 'up' | 'left' | null;
-};
+type AlignedTokenPair = [null | string, null | string];
 
-type AlignedTokenPair = [string | null, string | null];
+type AlignmentCell = {
+    direction: 'diagonal' | 'left' | 'up' | null;
+    score: number;
+};
 
 /**
  * Backtracks through the scoring matrix to reconstruct optimal sequence alignment.
@@ -168,11 +168,11 @@ export const backtrackAlignment = (
             case 'diagonal':
                 alignment.push([tokensA[--i], tokensB[--j]]);
                 break;
-            case 'up':
-                alignment.push([tokensA[--i], null]);
-                break;
             case 'left':
                 alignment.push([null, tokensB[--j]]);
+                break;
+            case 'up':
+                alignment.push([tokensA[--i], null]);
                 break;
             default:
                 throw new Error('Invalid alignment direction');
@@ -207,15 +207,15 @@ export const alignTokenSequences = (
 
     // Initialize scoring matrix
     const scoringMatrix: AlignmentCell[][] = Array.from({ length: lengthA + 1 }, () =>
-        Array.from({ length: lengthB + 1 }, () => ({ score: 0, direction: null })),
+        Array.from({ length: lengthB + 1 }, () => ({ direction: null, score: 0 })),
     );
 
     // Initialize first row and column
     for (let i = 1; i <= lengthA; i++) {
-        scoringMatrix[i][0] = { score: i * ALIGNMENT_SCORES.GAP_PENALTY, direction: 'up' };
+        scoringMatrix[i][0] = { direction: 'up', score: i * ALIGNMENT_SCORES.GAP_PENALTY };
     }
     for (let j = 1; j <= lengthB; j++) {
-        scoringMatrix[0][j] = { score: j * ALIGNMENT_SCORES.GAP_PENALTY, direction: 'left' };
+        scoringMatrix[0][j] = { direction: 'left', score: j * ALIGNMENT_SCORES.GAP_PENALTY };
     }
 
     // Fill scoring matrix
@@ -235,7 +235,7 @@ export const alignTokenSequences = (
             const bestScore = Math.max(diagonalScore, upScore, leftScore);
             const bestDirection = bestScore === diagonalScore ? 'diagonal' : bestScore === upScore ? 'up' : 'left';
 
-            scoringMatrix[i][j] = { score: bestScore, direction: bestDirection };
+            scoringMatrix[i][j] = { direction: bestDirection, score: bestScore };
         }
     }
 

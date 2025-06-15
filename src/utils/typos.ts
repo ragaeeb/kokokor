@@ -1,4 +1,5 @@
 import { FixTypoOptions, Observation } from '@/types';
+
 import { alignTokenSequences, areSimilarAfterNormalization, calculateSimilarity } from './similarity';
 import {
     handleFootnoteFusion,
@@ -20,9 +21,9 @@ import {
  * @returns Array of selected tokens (usually contains one token, but may contain multiple)
  */
 const selectBestTokens = (
-    originalToken: string | null,
-    suryaToken: string | null,
-    { typoSymbols, similarityThreshold }: FixTypoOptions,
+    originalToken: null | string,
+    suryaToken: null | string,
+    { similarityThreshold, typoSymbols }: FixTypoOptions,
 ): string[] => {
     // Handle missing tokens
     if (originalToken === null) {
@@ -113,18 +114,9 @@ const removeDuplicateTokens = (tokens: string[], highSimilarityThreshold: number
  * @param options - Configuration options for alignment and selection
  * @returns Corrected text with typos fixed
  */
-const processTextAlignment = (originalText: string, suryaText: string, options: FixTypoOptions): string => {
+export const processTextAlignment = (originalText: string, suryaText: string, options: FixTypoOptions): string => {
     const originalTokens = tokenizeText(originalText, options.typoSymbols);
     const suryaTokens = tokenizeText(suryaText, options.typoSymbols);
-
-    // Handle empty inputs
-    if (originalTokens.length === 0) {
-        return suryaText;
-    }
-
-    if (suryaTokens.length === 0) {
-        return originalText;
-    }
 
     // Align token sequences
     const alignedPairs = alignTokenSequences(

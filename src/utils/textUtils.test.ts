@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'bun:test';
+
 import {
-    normalizeArabicText,
     extractDigits,
-    tokenizeText,
     handleFootnoteFusion,
     handleFootnoteSelection,
     handleStandaloneFootnotes,
+    normalizeArabicText,
+    tokenizeText,
 } from './textUtils';
 
 describe('textUtils', () => {
@@ -75,12 +76,6 @@ describe('textUtils', () => {
             const input = 'محمد ﷺ رسول الله';
             const expected = ['محمد', 'ﷺ', 'رسول', 'الله'];
             expect(tokenizeText(input, ['ﷺ'])).toEqual(expected);
-        });
-
-        it('should remove HTML tags', () => {
-            const input = '<p>hello</p> <b>world</b>';
-            const expected = ['hello', 'world'];
-            expect(tokenizeText(input)).toEqual(expected);
         });
 
         it('should handle empty string', () => {

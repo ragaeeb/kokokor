@@ -1,5 +1,7 @@
 import { Observation, SuryaPageOcrResult } from '@/types';
 
+import { PATTERNS } from './textUtils';
+
 /**
  * Converts bounding box coordinates from array format to object format.
  * Transforms [x1, y1, x2, y2] coordinates to {x, y, width, height} format.
@@ -9,7 +11,7 @@ import { Observation, SuryaPageOcrResult } from '@/types';
  */
 export const mapSuryaBoundingBox = (box: number[]) => {
     const [x1, y1, x2, y2] = box;
-    return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+    return { height: y2 - y1, width: x2 - x1, x: x1, y: y1 };
 };
 
 /**
@@ -21,5 +23,8 @@ export const mapSuryaBoundingBox = (box: number[]) => {
  * @returns Array of observations in standardized format
  */
 export const mapSuryaPageResultToObservations = (surya: SuryaPageOcrResult): Observation[] => {
-    return surya.text_lines.map((line) => ({ bbox: mapSuryaBoundingBox(line.bbox), text: line.text }));
+    return surya.text_lines.map((line) => ({
+        bbox: mapSuryaBoundingBox(line.bbox),
+        text: line.text.replace(PATTERNS.basicTag, ' '),
+    }));
 };

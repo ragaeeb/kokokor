@@ -5,13 +5,12 @@ export const PATTERNS = {
     diacritics: /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g,
     footnoteEmbedded: /\([0-9\u0660-\u0669]+\)/,
     footnoteStandalone: /^\(?[0-9\u0660-\u0669]+\)?[،\.]?$/,
-    htmlTag: /<\/?[^>]+>/g,
     tatweel: /\u0640/g,
     whitespace: /\s+/,
 };
 
 /**
- * Normalizes Arabic text by removing diacritics, tatweel marks, and basic HTML tags.
+ * Normalizes Arabic text by removing diacritics, and tatweel marks.
  * This normalization enables better text comparison by focusing on core characters
  * while ignoring decorative elements that don't affect meaning.
  *
@@ -21,7 +20,7 @@ export const PATTERNS = {
  * normalizeArabicText('اَلسَّلَامُ عَلَيْكُمْ') // Returns 'السلام عليكم'
  */
 export const normalizeArabicText = (text: string): string => {
-    return text.replace(PATTERNS.basicTag, '').replace(PATTERNS.tatweel, '').replace(PATTERNS.diacritics, '').trim();
+    return text.replace(PATTERNS.tatweel, '').replace(PATTERNS.diacritics, '').trim();
 };
 
 /**
@@ -51,9 +50,7 @@ export const extractDigits = (text: string): string => {
  * tokenizeText('Hello ﷺ world', ['ﷺ']) // Returns ['Hello', 'ﷺ', 'world']
  */
 export const tokenizeText = (text: string, preserveSymbols: string[] = []): string[] => {
-    if (!text?.trim()) return [];
-
-    let processedText = text.replace(PATTERNS.htmlTag, ' ');
+    let processedText = text;
 
     // Add spaces around each preserve symbol to ensure they're tokenized separately
     for (const symbol of preserveSymbols) {
@@ -112,7 +109,7 @@ export const handleFootnoteFusion = (result: string[], previousToken: string, cu
  * handleFootnoteSelection('text', '(١)text') // Returns ['(١)text']
  * handleFootnoteSelection('(١)longtext', '(١)text') // Returns ['(١)text']
  */
-export const handleFootnoteSelection = (tokenA: string, tokenB: string): string[] | null => {
+export const handleFootnoteSelection = (tokenA: string, tokenB: string): null | string[] => {
     const aHasEmbedded = PATTERNS.footnoteEmbedded.test(tokenA);
     const bHasEmbedded = PATTERNS.footnoteEmbedded.test(tokenB);
 
@@ -137,7 +134,7 @@ export const handleFootnoteSelection = (tokenA: string, tokenB: string): string[
  * handleStandaloneFootnotes('(١)', 'text') // Returns ['(١)', 'text']
  * handleStandaloneFootnotes('(١)', '(٢)') // Returns ['(١)'] (shorter one)
  */
-export const handleStandaloneFootnotes = (tokenA: string, tokenB: string): string[] | null => {
+export const handleStandaloneFootnotes = (tokenA: string, tokenB: string): null | string[] => {
     const aIsFootnote = PATTERNS.footnoteStandalone.test(tokenA);
     const bIsFootnote = PATTERNS.footnoteStandalone.test(tokenB);
 

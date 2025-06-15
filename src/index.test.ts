@@ -4,10 +4,10 @@ import path from 'node:path';
 import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
 
 import {
-    rebuildParagraphs,
-    mapSuryaPageResultToObservations,
-    buildTextBlocksFromOCR,
     alignAndAdjustObservations,
+    buildTextBlocksFromOCR,
+    mapSuryaPageResultToObservations,
+    rebuildParagraphs,
 } from './index';
 
 type Metadata = {
@@ -38,12 +38,12 @@ const loadOCRData = async (only: string[] = []) => {
                 dpi: structure.dpi,
                 ...(structure.horizontal_lines && { horizontalLines: structure.horizontal_lines }),
                 ...(structure.rectangles && { rectangles: structure.rectangles }),
-                observations: ocrResult.observations,
                 alternateObservations: alignAndAdjustObservations(suryaObservations, {
-                    imageWidth: structure.dpi.width,
                     dpiX: structure.dpi.x,
                     dpiY: structure.dpi.y,
+                    imageWidth: structure.dpi.width,
                 }).observations,
+                observations: ocrResult.observations,
             };
         }
     });
@@ -57,7 +57,7 @@ describe('index', () => {
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];
-            const actual = rebuildParagraphs(ocrData, { typoSymbols: ['ﷺ'], footerSymbol: '___' });
+            const actual = rebuildParagraphs(ocrData, { footerSymbol: '___', typoSymbols: ['ﷺ'] });
 
             const parsedFile = path.parse(path.join('test', 'mixed', imageFile));
             const expectationFile = Bun.file(path.format({ dir: parsedFile.dir, ext: '.txt', name: parsedFile.name }));

@@ -1,45 +1,57 @@
-import type { BuildTextBoxOptions, Observation, OcrResult, RebuildOptions, TextBlock } from './types';
+import type { BuildTextBoxOptions, FixTypoOptions, Observation, OcrResult, RebuildOptions, TextBlock } from './types';
 
+import { PTS_TO_INCHES } from './utils/constants';
 import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './utils/grouping';
-import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/marking';
 import {
     filterHorizontalLinesOutsideRectangles,
     isBoundingBoxContained,
     isObservationCentered,
     isPoeticLayout,
 } from './utils/layout';
+import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/marking';
 import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
-import { findAndFixTypos } from './utils/typos';
-import { PTS_TO_INCHES } from './utils/constants';
+import { findAndFixTypos, processTextAlignment } from './utils/typos';
 
 export const alignAndAdjustObservations = (
     obs: Observation[],
     {
-        imageWidth,
         dpiX = PTS_TO_INCHES,
-        standardDpiX = 300,
-        lineHeightFactor = 0.49,
         dpiY = PTS_TO_INCHES,
+        imageWidth,
+        lineHeightFactor = 0.49,
         pixelTolerance = 5,
+        standardDpiX = 300,
     }: {
-        imageWidth: number;
         dpiX?: number;
-        standardDpiX?: number;
         dpiY?: number;
-        pixelTolerance?: number;
+        imageWidth: number;
         lineHeightFactor?: number;
+        pixelTolerance?: number;
+        standardDpiX?: number;
     },
 ) => {
     let observations = mapOcrResultToRTLObservations(obs, imageWidth);
     observations = normalizeObservationsX(observations, dpiX, standardDpiX);
 
-    let marked = indexObservationsAsLines(observations, dpiY, pixelTolerance, lineHeightFactor);
+    const marked = indexObservationsAsLines(observations, dpiY, pixelTolerance, lineHeightFactor);
     //assertIndicesContinuous(marked); // TODO: Remove, purely for catching bugs early during alpha stage
 
     let groups = groupObservationsByIndex(marked);
     groups = sortGroupsHorizontally(groups);
 
-    return { observations: mergeGroupedObservations(groups), groups };
+    return { groups, observations: mergeGroupedObservations(groups) };
+};
+
+export const fixTypo = (
+    original: string,
+    correction: string,
+    {
+        highSimilarityThreshold = 0.8,
+        similarityThreshold = 0.6,
+        typoSymbols,
+    }: Partial<FixTypoOptions> & Pick<FixTypoOptions, 'typoSymbols'>,
+) => {
+    return processTextAlignment(original, correction, { highSimilarityThreshold, similarityThreshold, typoSymbols });
 };
 
 /**
@@ -60,15 +72,16 @@ export const alignAndAdjustObservations = (
 export const buildTextBlocksFromOCR = (
     ocr: OcrResult,
     {
-        fallbackDPI = PTS_TO_INCHES,
-        pixelTolerance = 5,
-        standardDpiX = 300,
         centerToleranceRatio = 0.05,
-        minMarginRatio = 0.2,
-        lineHeightFactor = 0.49,
-        typoSymbols = [],
+        fallbackDPI = PTS_TO_INCHES,
         highSimilarityThreshold = 0.8,
+        lineHeightFactor = 0.49,
+        log,
+        minMarginRatio = 0.2,
+        pixelTolerance = 5,
         similarityThreshold = 0.6,
+        standardDpiX = 300,
+        typoSymbols = [],
         verticalJumpFactor = 2,
         widthTolerance = 0.85,
     }: BuildTextBoxOptions = {},
@@ -79,20 +92,21 @@ export const buildTextBlocksFromOCR = (
 
     const { x: dpiX = fallbackDPI, y: dpiY = fallbackDPI } = ocr.dpi;
 
-    let { observations, groups } = alignAndAdjustObservations(ocr.observations, {
-        imageWidth: ocr.dpi.width,
-        standardDpiX,
-        dpiY,
+    let { groups, observations } = alignAndAdjustObservations(ocr.observations, {
         dpiX,
-        pixelTolerance,
+        dpiY,
+        imageWidth: ocr.dpi.width,
         lineHeightFactor,
+        pixelTolerance,
+        standardDpiX,
     });
 
     if (typoSymbols.length > 0 && ocr.alternateObservations?.length) {
         observations = findAndFixTypos(ocr.alternateObservations, observations, {
-            typoSymbols,
-            similarityThreshold,
             highSimilarityThreshold,
+            log,
+            similarityThreshold,
+            typoSymbols,
         });
     }
 
@@ -104,7 +118,8 @@ export const buildTextBlocksFromOCR = (
         observations = mergeGroupedObservations(groups);
     }
 
-    let { rectangles = [], horizontalLines = [] } = ocr;
+    let { horizontalLines = [] } = ocr;
+    const { rectangles = [] } = ocr;
 
     if (rectangles.length > 0 && horizontalLines.length > 0) {
         horizontalLines = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
@@ -168,7 +183,8 @@ export const rebuildParagraphs = (ocr: OcrResult, options?: RebuildOptions) => {
 
 export * from './types';
 
-export { extractDigits, normalizeArabicText, PATTERNS } from './utils/textUtils';
-export { mapSuryaPageResultToObservations, mapSuryaBoundingBox } from './utils/surya';
-export { calculateSimilarity, areSimilarAfterNormalization } from './utils/similarity';
 export { calculateDPI } from './utils/marking';
+export { areSimilarAfterNormalization, calculateSimilarity } from './utils/similarity';
+export { mapSuryaBoundingBox, mapSuryaPageResultToObservations } from './utils/surya';
+export { extractDigits, normalizeArabicText, PATTERNS } from './utils/textUtils';
+export { findAndFixTypos } from './utils/typos';
