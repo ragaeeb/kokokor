@@ -52,6 +52,10 @@ export const simplifyObservation = (observation: Observation): Observation => {
             x: Math.trunc(observation.bbox.x),
             y: Math.trunc(observation.bbox.y),
         },
-        text: observation.text.split(' ')[0],
+        text: observation.text
+            .split(' ')
+            .filter((word) => word.length > 1)
+            .slice(0, 1)
+            .join(' '),
     };
 };

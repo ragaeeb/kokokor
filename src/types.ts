@@ -141,13 +141,21 @@ export type Observation = {
      */
     readonly bbox: BoundingBox;
 
-    /** Confidence for accuracy of OCR. */
-    readonly confidence?: number;
-
     /**
      * The text content of the observation.
      */
-    readonly text: string;
+    text: string;
+};
+
+export type ObservationLayoutInfo = {
+    /** If the text is centered on the page. This is true if there is at least some padding around the text and it does not span up to the margins. */
+    isCentered?: boolean;
+
+    /** If this text is a footnote. This is generally associated with texts appearing below the last horizontal line. */
+    isFootnote?: boolean;
+
+    /** If the text represents a heading. This is generally associated with texts that are surrounded in rectangles. */
+    isHeading?: boolean;
 };
 
 /**
@@ -224,18 +232,8 @@ export type SuryaPageOcrResult = {
 /**
  * A reconstructed text paragraph from the raw OCR data.
  */
-export type TextBlock = {
-    /** If the text is centered on the page. This is true if there is at least some padding around the text and it does not span up to the margins. */
-    readonly isCentered?: boolean;
-
-    /** If any of the observations in this block had a typo that was automatically patched, this will be set to true */
-    readonly isEdited?: boolean;
-
-    /** If this text is a footnote. This is generally associated with texts appearing below the last horizontal line. */
-    readonly isFootnote?: boolean;
-
-    /** If the text represents a heading. This is generally associated with texts that are surrounded in rectangles. */
-    readonly isHeading?: boolean;
+export type TextBlock = ObservationLayoutInfo & {
+    isPoetry?: boolean;
 
     /** The text associated with this text block */
     readonly text: string;

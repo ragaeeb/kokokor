@@ -58,32 +58,32 @@ describe('layout', () => {
         it('should only keep the last horizontal line', () => {
             const horizontalLines = [
                 {
+                    height: 3,
+                    width: 660,
                     x: 145,
                     y: 13,
-                    width: 660,
-                    height: 3,
                 },
                 {
+                    height: 3,
+                    width: 660,
                     x: 145,
                     y: 105,
-                    width: 660,
-                    height: 3,
                 },
                 {
+                    height: 3,
+                    width: 291,
                     x: 585,
                     y: 1063,
-                    width: 291,
-                    height: 3,
                 },
             ];
 
             const actual = filterHorizontalLinesOutsideRectangles(
                 [
                     {
+                        height: 97,
+                        width: 740,
                         x: 104,
                         y: 11,
-                        width: 740,
-                        height: 97,
                     },
                 ],
                 horizontalLines,
@@ -97,18 +97,18 @@ describe('layout', () => {
             const actual = filterHorizontalLinesOutsideRectangles(
                 [
                     {
+                        height: 201,
+                        width: 770,
                         x: 864,
                         y: 16,
-                        width: 770,
-                        height: 201,
                     },
                 ],
                 [
                     {
+                        height: 9,
+                        width: 736,
                         x: 878,
                         y: 18,
-                        width: 736,
-                        height: 9,
                     },
                 ],
                 5,
@@ -122,31 +122,31 @@ describe('layout', () => {
         it('should only return the first observation since it is in the title rectangle', () => {
             const observations = [
                 {
-                    text: 'A',
                     bbox: {
-                        y: 40,
-                        x: 240,
-                        width: 480,
                         height: 40,
+                        width: 480,
+                        x: 240,
+                        y: 40,
                     },
+                    text: 'A',
                 },
                 {
-                    text: 'B',
                     bbox: {
                         height: 42,
-                        y: 120,
                         width: 642,
                         x: 190,
+                        y: 120,
                     },
+                    text: 'B',
                 },
             ];
 
             const actual = filterObservationsInsideRectangles(observations, [
                 {
+                    height: 97,
+                    width: 740,
                     x: 104,
                     y: 11,
-                    width: 740,
-                    height: 97,
                 },
             ]);
 

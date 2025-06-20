@@ -1,16 +1,33 @@
-import type { BuildTextBoxOptions, FixTypoOptions, Observation, OcrResult, RebuildOptions, TextBlock } from './types';
+import type {
+    BoundingBox,
+    BuildTextBoxOptions,
+    CenteringOptions,
+    FixTypoOptions,
+    Observation,
+    ObservationLayoutInfo,
+    OcrResult,
+    RebuildOptions,
+    TextBlock,
+} from './types';
 
 import { PTS_TO_INCHES } from './utils/constants';
 import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './utils/grouping';
-import {
-    filterHorizontalLinesOutsideRectangles,
-    isBoundingBoxContained,
-    isObservationCentered,
-    isPoeticLayout,
-} from './utils/layout';
+import { isBoundingBoxContained, isObservationCentered, isPoeticLayout } from './utils/layout';
 import { indexObservationsAsLines, indexObservationsAsParagraphs } from './utils/marking';
 import { mapOcrResultToRTLObservations, normalizeObservationsX } from './utils/normalization';
 import { findAndFixTypos, processTextAlignment } from './utils/typos';
+
+const indexAndGroupObservations = (
+    observations: Observation[],
+    dpiY = PTS_TO_INCHES,
+    pixelTolerance = 5,
+    lineHeightFactor?: number,
+) => {
+    const marked = indexObservationsAsLines(observations, dpiY, pixelTolerance, lineHeightFactor);
+    //assertIndicesContinuous(marked); // TODO: Remove, purely for catching bugs early during alpha stage
+
+    return groupObservationsByIndex(marked);
+};
 
 export const alignAndAdjustObservations = (
     obs: Observation[],
@@ -18,7 +35,8 @@ export const alignAndAdjustObservations = (
         dpiX = PTS_TO_INCHES,
         dpiY = PTS_TO_INCHES,
         imageWidth,
-        lineHeightFactor = 0.49,
+        lineHeightFactor,
+        log,
         pixelTolerance = 5,
         standardDpiX = 300,
     }: {
@@ -26,6 +44,7 @@ export const alignAndAdjustObservations = (
         dpiY?: number;
         imageWidth: number;
         lineHeightFactor?: number;
+        log?: boolean;
         pixelTolerance?: number;
         standardDpiX?: number;
     },
@@ -33,11 +52,14 @@ export const alignAndAdjustObservations = (
     let observations = mapOcrResultToRTLObservations(obs, imageWidth);
     observations = normalizeObservationsX(observations, dpiX, standardDpiX);
 
-    const marked = indexObservationsAsLines(observations, dpiY, pixelTolerance, lineHeightFactor);
+    let groups = indexAndGroupObservations(observations, dpiY, pixelTolerance, lineHeightFactor);
     //assertIndicesContinuous(marked); // TODO: Remove, purely for catching bugs early during alpha stage
 
-    let groups = groupObservationsByIndex(marked);
     groups = sortGroupsHorizontally(groups);
+
+    if (log) {
+        console.log('groups', 'dpiX', dpiX, 'imageWidth', imageWidth, groups);
+    }
 
     return { groups, observations: mergeGroupedObservations(groups) };
 };
@@ -52,6 +74,79 @@ export const fixTypo = (
     }: Partial<FixTypoOptions> & Pick<FixTypoOptions, 'typoSymbols'>,
 ) => {
     return processTextAlignment(original, correction, { highSimilarityThreshold, similarityThreshold, typoSymbols });
+};
+
+export const flattenObservationsToParagraphs = (
+    observations: Observation[],
+    verticalJumpFactor = 2,
+    widthTolerance = 0.85,
+) => {
+    const marked = indexObservationsAsParagraphs(observations, verticalJumpFactor, widthTolerance);
+    //assertIndicesContinuous(marked);
+
+    const groups = groupObservationsByIndex(marked);
+    return mergeGroupedObservations(groups);
+};
+
+type MapObservationsToTextBlocksOptions = Partial<CenteringOptions> & {
+    horizontalLines?: BoundingBox[];
+    imageWidth: number;
+    pixelTolerance?: number;
+    rectangles?: BoundingBox[];
+};
+
+export const getObservationLayoutInfo = (
+    o: Observation,
+    {
+        centerToleranceRatio = 0.05,
+        horizontalLines = [],
+        imageWidth,
+        minMarginRatio = 0.2,
+        pixelTolerance = 5,
+        rectangles = [],
+    }: MapObservationsToTextBlocksOptions,
+): ObservationLayoutInfo => {
+    const isObservationInsideRectangle = rectangles.some((rectangle) =>
+        isBoundingBoxContained(o.bbox, rectangle, pixelTolerance),
+    );
+
+    const isCentered = isObservationCentered(o.bbox, imageWidth, { centerToleranceRatio, minMarginRatio });
+    const isFootnote = horizontalLines.at(-1) && o.bbox.y > horizontalLines.at(-1)!.y;
+
+    return {
+        ...(isObservationInsideRectangle && { isHeading: true }),
+        ...(isCentered && { isCentered: true }),
+        ...(isFootnote && { isFootnote: true }),
+    };
+};
+
+export const mapObservationsToTextBlocks = (
+    observations: Observation[],
+    {
+        centerToleranceRatio = 0.05,
+        horizontalLines = [],
+        imageWidth,
+        minMarginRatio = 0.2,
+        pixelTolerance = 5,
+        rectangles = [],
+    }: MapObservationsToTextBlocksOptions,
+) => {
+    const centerOptions = { centerToleranceRatio, minMarginRatio };
+
+    const textBlocks: TextBlock[] = observations.map((o) => {
+        return {
+            ...getObservationLayoutInfo(o, {
+                ...centerOptions,
+                horizontalLines,
+                imageWidth,
+                pixelTolerance,
+                rectangles,
+            }),
+            text: o.text,
+        };
+    });
+
+    return textBlocks;
 };
 
 /**
@@ -75,7 +170,7 @@ export const buildTextBlocksFromOCR = (
         centerToleranceRatio = 0.05,
         fallbackDPI = PTS_TO_INCHES,
         highSimilarityThreshold = 0.8,
-        lineHeightFactor = 0.49,
+        lineHeightFactor,
         log,
         minMarginRatio = 0.2,
         pixelTolerance = 5,
@@ -92,7 +187,7 @@ export const buildTextBlocksFromOCR = (
 
     const { x: dpiX = fallbackDPI, y: dpiY = fallbackDPI } = ocr.dpi;
 
-    let { groups, observations } = alignAndAdjustObservations(ocr.observations, {
+    const { groups, ...adjusted } = alignAndAdjustObservations(ocr.observations, {
         dpiX,
         dpiY,
         imageWidth: ocr.dpi.width,
@@ -100,6 +195,7 @@ export const buildTextBlocksFromOCR = (
         pixelTolerance,
         standardDpiX,
     });
+    let { observations } = adjusted;
 
     if (typoSymbols.length > 0 && ocr.alternateObservations?.length) {
         observations = findAndFixTypos(ocr.alternateObservations, observations, {
@@ -111,40 +207,17 @@ export const buildTextBlocksFromOCR = (
     }
 
     if (!isPoeticLayout(groups)) {
-        const marked = indexObservationsAsParagraphs(observations, verticalJumpFactor, widthTolerance);
-        //assertIndicesContinuous(marked);
-
-        groups = groupObservationsByIndex(marked);
-        observations = mergeGroupedObservations(groups);
+        observations = flattenObservationsToParagraphs(observations, verticalJumpFactor, widthTolerance);
     }
 
-    let { horizontalLines = [] } = ocr;
-    const { rectangles = [] } = ocr;
-
-    if (rectangles.length > 0 && horizontalLines.length > 0) {
-        horizontalLines = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
-    }
-
-    const lastHorizontalLine = horizontalLines.at(-1);
-    const centerOptions = { centerToleranceRatio, minMarginRatio };
-
-    const textBlocks: TextBlock[] = observations.map((o) => {
-        const isObservationInsideRectangle = rectangles.some((rectangle) =>
-            isBoundingBoxContained(o.bbox, rectangle, pixelTolerance),
-        );
-
-        const isCentered = isObservationCentered(o, ocr.dpi.width, centerOptions);
-
-        return {
-            ...(isCentered && { isCentered: true }),
-            ...(o.confidence && o.confidence < 1 && { isEdited: true }),
-            ...(lastHorizontalLine && o.bbox.y > lastHorizontalLine.y && { isFootnote: true }),
-            ...(isObservationInsideRectangle && { isHeading: true }),
-            text: o.text,
-        };
+    return mapObservationsToTextBlocks(observations, {
+        centerToleranceRatio,
+        horizontalLines: ocr.horizontalLines,
+        imageWidth: ocr.dpi.width,
+        minMarginRatio,
+        pixelTolerance,
+        rectangles: ocr.rectangles,
     });
-
-    return textBlocks;
 };
 
 export const mapTextBlocksToParagraphs = (textBlocks: TextBlock[], footerSymbol?: string) => {
@@ -183,6 +256,7 @@ export const rebuildParagraphs = (ocr: OcrResult, options?: RebuildOptions) => {
 
 export * from './types';
 
+export { filterHorizontalLinesOutsideRectangles, isPoeticLayout } from './utils/layout';
 export { calculateDPI } from './utils/marking';
 export { areSimilarAfterNormalization, calculateSimilarity } from './utils/similarity';
 export { mapSuryaBoundingBox, mapSuryaPageResultToObservations } from './utils/surya';

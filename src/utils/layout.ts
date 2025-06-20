@@ -33,18 +33,18 @@ import type { BoundingBox, CenteringOptions, Observation } from '@/types';
  * isObservationCentered({ bbox: { width: 2026, x: 232 } }, 2481, { centerToleranceRatio: 0.05, minMarginRatio: 0.1 }) // false
  * ```
  */
-export const isObservationCentered = (observation: Observation, imageWidth: number, options: CenteringOptions) => {
+export const isObservationCentered = (bbox: BoundingBox, imageWidth: number, options: CenteringOptions) => {
     const pageCenter = imageWidth / 2;
     const tolPx = imageWidth * options.centerToleranceRatio;
-    const centerX = observation.bbox.x + observation.bbox.width / 2;
+    const centerX = bbox.x + bbox.width / 2;
 
     // Check if the center point is near the page center
     const isCenterPointCentered = Math.abs(centerX - pageCenter) <= tolPx;
 
     // Check if there's sufficient whitespace on both sides
     // An observation should have meaningful margins to be considered "centered"
-    const leftMargin = observation.bbox.x;
-    const rightMargin = imageWidth - (observation.bbox.x + observation.bbox.width);
+    const leftMargin = bbox.x;
+    const rightMargin = imageWidth - (bbox.x + bbox.width);
     const minMargin = imageWidth * options.minMarginRatio;
 
     const hasSufficientMargins = leftMargin >= minMargin && rightMargin >= minMargin;
@@ -78,7 +78,7 @@ export const isPoeticLayout = (lines: Observation[][], expectedCols = 2, minPoet
 export const filterHorizontalLinesOutsideRectangles = (
     rectangles: BoundingBox[],
     horizontalLines: BoundingBox[],
-    tolerance: number,
+    tolerance = 5,
 ) => {
     return horizontalLines.filter((line) => {
         // Check if this line is contained within any rectangle
@@ -137,4 +137,19 @@ export const filterObservationsInsideRectangles = (
     return observations.filter((observation) =>
         rectangles.some((rectangle) => isBoundingBoxContained(observation.bbox, rectangle, tolerance)),
     );
+};
+
+/**
+ * Check if two observations are close enough vertically to be considered a poetry pair
+ */
+export const areObservationsVerticallyAligned = (
+    obs1: Observation,
+    obs2: Observation,
+    maxVerticalGapRatio = 2,
+): boolean => {
+    const avgHeight = (obs1.bbox.height + obs2.bbox.height) / 2;
+    const verticalGap = Math.abs(obs1.bbox.y - obs2.bbox.y);
+    const maxAllowedGap = avgHeight * maxVerticalGapRatio;
+
+    return verticalGap <= maxAllowedGap;
 };

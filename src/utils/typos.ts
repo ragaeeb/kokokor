@@ -195,16 +195,11 @@ export const findAndFixTypos = (
         }
 
         if (!typoSymbolsRegex.test(suryaObservation.text)) {
-            if (!isSimilar) {
-                return { ...observation, confidence: 0.4 };
-            }
-
             return observation;
         }
 
         return {
             ...observation,
-            confidence: 0.5,
             text: processTextAlignment(observation.text, suryaObservation.text, options),
         };
     });

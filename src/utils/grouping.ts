@@ -11,12 +11,12 @@ import type { IndexedObservation, Observation } from '@/types';
 export const groupObservationsByIndex = (marked: IndexedObservation[]) => {
     const groups: Observation[][] = [];
 
-    for (const m of marked) {
-        if (!groups[m.index]) {
-            groups[m.index] = [];
+    for (const { index, ...m } of marked) {
+        if (!groups[index]) {
+            groups[index] = [];
         }
 
-        groups[m.index].push({ bbox: m.bbox, text: m.text, ...(m.confidence && { confidence: m.confidence }) });
+        groups[index].push(m);
     }
 
     return groups;
@@ -46,6 +46,7 @@ export const sortGroupsHorizontally = (grouped: Observation[][]) => {
  * For each group, this function:
  * 1. Calculates the combined bounding box that encompasses all observations in the group
  * 2. Concatenates the text of all observations with spaces between them
+ * 3. Preserves all additional properties from the first observation in the group
  *
  * @param grouped - Array of observation groups to be merged
  * @returns An array of merged observations, where each item represents a complete line or paragraph
@@ -83,17 +84,15 @@ export const mergeGroupedObservations = (grouped: Observation[][]) => {
             combinedText += ' ' + text;
         }
 
-        const correctedObservation = group.find((o) => o.confidence);
-
-        // Create the merged observation
+        // Create the merged observation, preserving all properties from the first observation
         result.push({
+            ...group[0],
             bbox: {
                 height: maxY - minY,
                 width: maxX - minX,
                 x: minX,
                 y: minY,
             },
-            ...(correctedObservation && { confidence: correctedObservation.confidence }),
             text: combinedText,
         });
     }

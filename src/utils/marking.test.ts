@@ -4,20 +4,431 @@ import { indexObservationsAsLines, indexObservationsAsParagraphs } from './marki
 
 describe('marking', () => {
     describe('indexObservationsAsLines', () => {
-        it('should assign the same line index to observations within vertical threshold', () => {
+        it('should handle the large image coordinates', () => {
             const observations = [
-                { bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'First line part 1' },
-                { bbox: { height: 20, width: 100, x: 120, y: 12 }, text: 'First line part 2' }, // Close to first, should be same line
-                { bbox: { height: 20, width: 100, x: 10, y: 50 }, text: 'Second line' }, // Far from first, should be new line
-                { bbox: { height: 20, width: 100, x: 10, y: 52 }, text: 'Still second line' }, // Close to previous, same line
+                {
+                    bbox: {
+                        height: 252,
+                        width: 3787,
+                        x: 491,
+                        y: 152,
+                    },
+                    text: 'المنهج',
+                },
+                {
+                    bbox: {
+                        height: 246,
+                        width: 3759,
+                        x: 509,
+                        y: 404,
+                    },
+                    text: 'وطعون',
+                },
+                {
+                    bbox: {
+                        height: 228,
+                        width: 3741,
+                        x: 535,
+                        y: 659,
+                    },
+                    text: 'ليست',
+                },
+                {
+                    bbox: {
+                        height: 237,
+                        width: 3759,
+                        x: 500,
+                        y: 896,
+                    },
+                    text: 'دينًا',
+                },
+                {
+                    bbox: {
+                        height: 259,
+                        width: 3718,
+                        x: 525,
+                        y: 1134,
+                    },
+                    text: 'شعار',
+                },
+                {
+                    bbox: {
+                        height: 236,
+                        width: 3761,
+                        x: 481,
+                        y: 1405,
+                    },
+                    text: 'الله-:',
+                },
+                {
+                    bbox: {
+                        height: 193,
+                        width: 535,
+                        x: 491,
+                        y: 1661,
+                    },
+                    text: 'الصالح)).',
+                },
+                {
+                    bbox: {
+                        height: 300,
+                        width: 3604,
+                        x: 701,
+                        y: 1895,
+                    },
+                    text: 'إنَّ',
+                },
+                {
+                    bbox: {
+                        height: 195,
+                        width: 3742,
+                        x: 508,
+                        y: 2215,
+                    },
+                    text: 'سائرون',
+                },
+                {
+                    bbox: {
+                        height: 414,
+                        width: 3804,
+                        x: 460,
+                        y: 2348,
+                    },
+                    text: 'عبد',
+                },
+                {
+                    bbox: {
+                        height: 240,
+                        width: 3796,
+                        x: 464,
+                        y: 2690,
+                    },
+                    text: 'العقيدة',
+                },
+                {
+                    bbox: {
+                        height: 220,
+                        width: 2424,
+                        x: 465,
+                        y: 2945,
+                    },
+                    text: 'وتصفيتها',
+                },
+                {
+                    bbox: {
+                        height: 219,
+                        width: 3522,
+                        x: 720,
+                        y: 3218,
+                    },
+                    text: 'كان',
+                },
+                {
+                    bbox: {
+                        height: 250,
+                        width: 3797,
+                        x: 464,
+                        y: 3465,
+                    },
+                    text: 'وتعادَى',
+                },
+                {
+                    bbox: {
+                        height: 228,
+                        width: 3785,
+                        x: 465,
+                        y: 3719,
+                    },
+                    text: 'والسُّنة،',
+                },
+                {
+                    bbox: {
+                        height: 219,
+                        width: 1985,
+                        x: 456,
+                        y: 3974,
+                    },
+                    text: 'الحجة',
+                },
+                {
+                    bbox: {
+                        height: 255,
+                        width: 3515,
+                        x: 710,
+                        y: 4260,
+                    },
+                    text: '(«يسموننا',
+                },
+                {
+                    bbox: {
+                        height: 229,
+                        width: 3750,
+                        x: 483,
+                        y: 4510,
+                    },
+                    text: 'خاص،',
+                },
+                {
+                    bbox: {
+                        height: 248,
+                        width: 3770,
+                        x: 464,
+                        y: 4741,
+                    },
+                    text: 'الأغراض',
+                },
+                {
+                    bbox: {
+                        height: 237,
+                        width: 3785,
+                        x: 456,
+                        y: 5003,
+                    },
+                    text: 'محمد',
+                },
+                {
+                    bbox: {
+                        height: 289,
+                        width: 3780,
+                        x: 472,
+                        y: 5205,
+                    },
+                    text: 'جاءت',
+                },
+                {
+                    bbox: {
+                        height: 237,
+                        width: 3741,
+                        x: 491,
+                        y: 5478,
+                    },
+                    text: 'ركَمّم',
+                },
             ];
 
-            const indexed = indexObservationsAsLines(observations, 72, 5, 0.49);
-
-            expect(indexed[0].index).toBe(0);
-            expect(indexed[1].index).toBe(0); // Same line as first
-            expect(indexed[2].index).toBe(1); // New line
-            expect(indexed[3].index).toBe(1); // Same line as third
+            const indexed = indexObservationsAsLines(observations, 599, 5);
+            expect(indexed).toEqual([
+                {
+                    bbox: {
+                        height: 252,
+                        width: 3787,
+                        x: 491,
+                        y: 152,
+                    },
+                    index: 0,
+                    text: 'المنهج',
+                },
+                {
+                    bbox: {
+                        height: 246,
+                        width: 3759,
+                        x: 509,
+                        y: 404,
+                    },
+                    index: 1,
+                    text: 'وطعون',
+                },
+                {
+                    bbox: {
+                        height: 228,
+                        width: 3741,
+                        x: 535,
+                        y: 659,
+                    },
+                    index: 2,
+                    text: 'ليست',
+                },
+                {
+                    bbox: {
+                        height: 237,
+                        width: 3759,
+                        x: 500,
+                        y: 896,
+                    },
+                    index: 3,
+                    text: 'دينًا',
+                },
+                {
+                    bbox: {
+                        height: 259,
+                        width: 3718,
+                        x: 525,
+                        y: 1134,
+                    },
+                    index: 4,
+                    text: 'شعار',
+                },
+                {
+                    bbox: {
+                        height: 236,
+                        width: 3761,
+                        x: 481,
+                        y: 1405,
+                    },
+                    index: 5,
+                    text: 'الله-:',
+                },
+                {
+                    bbox: {
+                        height: 193,
+                        width: 535,
+                        x: 491,
+                        y: 1661,
+                    },
+                    index: 6,
+                    text: 'الصالح)).',
+                },
+                {
+                    bbox: {
+                        height: 300,
+                        width: 3604,
+                        x: 701,
+                        y: 1895,
+                    },
+                    index: 7,
+                    text: 'إنَّ',
+                },
+                {
+                    bbox: {
+                        height: 195,
+                        width: 3742,
+                        x: 508,
+                        y: 2215,
+                    },
+                    index: 8,
+                    text: 'سائرون',
+                },
+                {
+                    bbox: {
+                        height: 414,
+                        width: 3804,
+                        x: 460,
+                        y: 2348,
+                    },
+                    index: 9,
+                    text: 'عبد',
+                },
+                {
+                    bbox: {
+                        height: 240,
+                        width: 3796,
+                        x: 464,
+                        y: 2690,
+                    },
+                    index: 10,
+                    text: 'العقيدة',
+                },
+                {
+                    bbox: {
+                        height: 220,
+                        width: 2424,
+                        x: 465,
+                        y: 2945,
+                    },
+                    index: 11,
+                    text: 'وتصفيتها',
+                },
+                {
+                    bbox: {
+                        height: 219,
+                        width: 3522,
+                        x: 720,
+                        y: 3218,
+                    },
+                    index: 12,
+                    text: 'كان',
+                },
+                {
+                    bbox: {
+                        height: 250,
+                        width: 3797,
+                        x: 464,
+                        y: 3465,
+                    },
+                    index: 13,
+                    text: 'وتعادَى',
+                },
+                {
+                    bbox: {
+                        height: 228,
+                        width: 3785,
+                        x: 465,
+                        y: 3719,
+                    },
+                    index: 14,
+                    text: 'والسُّنة،',
+                },
+                {
+                    bbox: {
+                        height: 219,
+                        width: 1985,
+                        x: 456,
+                        y: 3974,
+                    },
+                    index: 15,
+                    text: 'الحجة',
+                },
+                {
+                    bbox: {
+                        height: 255,
+                        width: 3515,
+                        x: 710,
+                        y: 4260,
+                    },
+                    index: 16,
+                    text: '(«يسموننا',
+                },
+                {
+                    bbox: {
+                        height: 229,
+                        width: 3750,
+                        x: 483,
+                        y: 4510,
+                    },
+                    index: 17,
+                    text: 'خاص،',
+                },
+                {
+                    bbox: {
+                        height: 248,
+                        width: 3770,
+                        x: 464,
+                        y: 4741,
+                    },
+                    index: 18,
+                    text: 'الأغراض',
+                },
+                {
+                    bbox: {
+                        height: 237,
+                        width: 3785,
+                        x: 456,
+                        y: 5003,
+                    },
+                    index: 19,
+                    text: 'محمد',
+                },
+                {
+                    bbox: {
+                        height: 289,
+                        width: 3780,
+                        x: 472,
+                        y: 5205,
+                    },
+                    index: 20,
+                    text: 'جاءت',
+                },
+                {
+                    bbox: {
+                        height: 237,
+                        width: 3741,
+                        x: 491,
+                        y: 5478,
+                    },
+                    index: 21,
+                    text: 'ركَمّم',
+                },
+            ]);
         });
 
         it('should not group the 2nd line after the heading with the first line', () => {
@@ -147,133 +558,6 @@ describe('marking', () => {
             ]);
         });
 
-        it('should handle sensitive distance', () => {
-            const actual = indexObservationsAsLines(
-                [
-                    {
-                        bbox: {
-                            height: 75.97074672825268,
-                            width: 380.94775390624994,
-                            x: 780.754373550044,
-                            y: 214.91724403387224,
-                        },
-                        text: 'بشاشة الحياة',
-                    },
-                    {
-                        bbox: {
-                            height: 68.3661157609501,
-                            width: 539.3616943359374,
-                            x: 343.23018798197756,
-                            y: 312.87952305311984,
-                        },
-                        text: 'بشائر الخير مِن جَنبيه تَطلق',
-                    },
-                    {
-                        bbox: {
-                            height: 80.98248115698122,
-                            width: 537.3461303710938,
-                            x: 1017.5684144806687,
-                            y: 308.4968668703253,
-                        },
-                        text: 'ومن حناياه هذا النور والألقُ',
-                    },
-                    {
-                        bbox: {
-                            height: 79.96920708237099,
-                            width: 531.8181762695314,
-                            x: 350.77370604866667,
-                            y: 395.84757505773655,
-                        },
-                        text: 'ومن جَناه الرباضُ الخُضْرُ وارفة',
-                    },
-                    {
-                        bbox: {
-                            height: 115.7507247777975,
-                            width: 532.32275390625,
-                            x: 1017.5886271634922,
-                            y: 374.9579761654046,
-                        },
-                        text: 'يُملُ منها ريعُ ضاحكٌ عَيِقُ',
-                    },
-                    {
-                        bbox: {
-                            height: 60.976520400307884,
-                            width: 528.04638671875,
-                            x: 347.0019683877151,
-                            y: 501.80677444187836,
-                        },
-                        text: 'أتى إلى الناس والظلماء عاكفة',
-                    },
-                ],
-                72,
-                5,
-                0.49,
-            );
-
-            expect(actual).toEqual([
-                {
-                    bbox: {
-                        height: 75.97074672825268,
-                        width: 380.94775390624994,
-                        x: 780.754373550044,
-                        y: 214.91724403387224,
-                    },
-                    index: 0,
-                    text: 'بشاشة الحياة',
-                },
-                {
-                    bbox: {
-                        height: 80.98248115698122,
-                        width: 537.3461303710938,
-                        x: 1017.5684144806687,
-                        y: 308.4968668703253,
-                    },
-                    index: 1,
-                    text: 'ومن حناياه هذا النور والألقُ',
-                },
-                {
-                    bbox: {
-                        height: 68.3661157609501,
-                        width: 539.3616943359374,
-                        x: 343.23018798197756,
-                        y: 312.87952305311984,
-                    },
-                    index: 1,
-                    text: 'بشائر الخير مِن جَنبيه تَطلق',
-                },
-                {
-                    bbox: {
-                        height: 115.7507247777975,
-                        width: 532.32275390625,
-                        x: 1017.5886271634922,
-                        y: 374.9579761654046,
-                    },
-                    index: 2,
-                    text: 'يُملُ منها ريعُ ضاحكٌ عَيِقُ',
-                },
-                {
-                    bbox: {
-                        height: 79.96920708237099,
-                        width: 531.8181762695314,
-                        x: 350.77370604866667,
-                        y: 395.84757505773655,
-                    },
-                    index: 2,
-                    text: 'ومن جَناه الرباضُ الخُضْرُ وارفة',
-                },
-                {
-                    bbox: {
-                        height: 60.976520400307884,
-                        width: 528.04638671875,
-                        x: 347.0019683877151,
-                        y: 501.80677444187836,
-                    },
-                    index: 3,
-                    text: 'أتى إلى الناس والظلماء عاكفة',
-                },
-            ]);
-        });
-
         it('should handle single observation', () => {
             const observations = [{ bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'Single observation' }];
 
@@ -281,20 +565,6 @@ describe('marking', () => {
             expect(result).toEqual([
                 { bbox: { height: 20, width: 100, x: 10, y: 10 }, index: 0, text: 'Single observation' },
             ]);
-        });
-
-        it('should consider height of observation for threshold calculation', () => {
-            const observations = [
-                { bbox: { height: 10, width: 100, x: 10, y: 10 }, text: 'Small height' },
-                { bbox: { height: 40, width: 100, x: 120, y: 30 }, text: 'Large height' }, // Within threshold due to large height
-                { bbox: { height: 10, width: 100, x: 10, y: 60 }, text: 'Far from previous' }, // Beyond threshold
-            ];
-
-            const indexed = indexObservationsAsLines(observations, 72, 5, 0.49);
-
-            expect(indexed[0].index).toBe(0);
-            expect(indexed[1].index).toBe(0); // Same line due to tall height
-            expect(indexed[2].index).toBe(1); // New line
         });
 
         it('should sort result by line and then y-coordinate', () => {

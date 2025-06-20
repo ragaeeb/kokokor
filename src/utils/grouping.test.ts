@@ -327,7 +327,7 @@ describe('grouping', () => {
                     { bbox: { height: 15, width: 100, x: 200, y: 5 }, text: 'Second part' },
                 ],
                 [
-                    { bbox: { height: 10, width: 100, x: 100, y: 50 }, text: 'Third part' },
+                    { bbox: { height: 10, width: 100, x: 100, y: 50 }, isFootnote: true, text: 'Third part' },
                     { bbox: { height: 10, width: 100, x: 200, y: 50 }, text: 'Fourth part' },
                 ],
             ];
@@ -341,6 +341,7 @@ describe('grouping', () => {
                 },
                 {
                     bbox: { height: 10, width: 200, x: 100, y: 50 },
+                    isFootnote: true,
                     text: 'Third part Fourth part',
                 },
             ]);
