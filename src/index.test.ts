@@ -64,7 +64,6 @@ describe('index', () => {
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];
-            console.log('DOING');
             const actual = rebuildParagraphs(ocrData, { footerSymbol: '___', typoSymbols: ['ﷺ'] });
 
             const parsedFile = path.parse(path.join('test', 'mixed', imageFile));
@@ -80,7 +79,7 @@ describe('index', () => {
         });
     });
 
-    describe.skip('buildTextBlocksFromOCR', () => {
+    describe('buildTextBlocksFromOCR', () => {
         it('should return the text blocks for ', async () => {
             const testData = await loadOCRData();
             const ocrData = testData['1.jpg'];

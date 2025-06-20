@@ -29,6 +29,16 @@ const indexAndGroupObservations = (
     return groupObservationsByIndex(marked);
 };
 
+type AlignObservationsOptions = {
+    dpiX?: number;
+    dpiY?: number;
+    imageWidth: number;
+    lineHeightFactor?: number;
+    log?: boolean;
+    pixelTolerance?: number;
+    standardDpiX?: number;
+};
+
 export const alignAndAdjustObservations = (
     obs: Observation[],
     {
@@ -39,15 +49,7 @@ export const alignAndAdjustObservations = (
         log,
         pixelTolerance = 5,
         standardDpiX = 300,
-    }: {
-        dpiX?: number;
-        dpiY?: number;
-        imageWidth: number;
-        lineHeightFactor?: number;
-        log?: boolean;
-        pixelTolerance?: number;
-        standardDpiX?: number;
-    },
+    }: AlignObservationsOptions,
 ) => {
     let observations = mapOcrResultToRTLObservations(obs, imageWidth);
     observations = normalizeObservationsX(observations, dpiX, standardDpiX);

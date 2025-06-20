@@ -397,7 +397,7 @@ describe('poetry', () => {
                 ],
             ];
 
-            const avgProseWordDensity = calculateAverageProseDensity(groups, 4959);
+            const avgProseWordDensity = calculateAverageProseDensity(groups.flat(), 4959);
 
             const poeticLines = groups
                 .filter((g) => g.length === 1)

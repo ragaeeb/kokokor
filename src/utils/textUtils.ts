@@ -1,10 +1,11 @@
 export const PATTERNS = {
     arabicDigits: /[0-9\u0660-\u0669]+/,
     arabicLettersAndDigits: /[0-9\u0621-\u063A\u0641-\u064A\u0660-\u0669]+/g,
+    arabicPunctuationAndWhitespace: /[\s\u060C\u061B\u061F\u06D4]+/,
     basicTag: /<\/?[a-z][^>]*?>/gi,
     diacritics: /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED]/g,
     footnoteEmbedded: /\([0-9\u0660-\u0669]+\)/,
-    footnoteStandalone: /^\(?[0-9\u0660-\u0669]+\)?[،\.]?$/,
+    footnoteStandalone: /^\(?[0-9\u0660-\u0669]+\)?[،.]?$/,
     tatweel: /\u0640/g,
     whitespace: /\s+/,
 };
@@ -21,6 +22,19 @@ export const PATTERNS = {
  */
 export const normalizeArabicText = (text: string): string => {
     return text.replace(PATTERNS.tatweel, '').replace(PATTERNS.diacritics, '').trim();
+};
+
+/**
+ * Enhanced Arabic text word counting with better handling of Arabic-specific cases
+ */
+export const getWordCount = (text: string): number => {
+    // Handle Arabic text by removing diacritics and normalizing
+    const normalizedText = normalizeArabicText(text)
+        // Split on whitespace and Arabic punctuation
+        .split(PATTERNS.arabicPunctuationAndWhitespace)
+        .filter(Boolean);
+
+    return normalizedText.length;
 };
 
 /**

@@ -10,7 +10,7 @@ describe('layout', () => {
     describe('isObservationCentered', () => {
         it('should be true if the observation is in the center of the page', () => {
             expect(
-                isObservationCentered({ bbox: { width: 286, x: 298 } }, 960, {
+                isObservationCentered({ width: 286, x: 298 }, 960, {
                     centerToleranceRatio: 0.05,
                     minMarginRatio: 0.1,
                 }),
@@ -19,7 +19,7 @@ describe('layout', () => {
 
         it('should be false if the observation is in not in the center of the page', () => {
             expect(
-                isObservationCentered({ bbox: { width: 716, x: 73 } }, 960, {
+                isObservationCentered({ width: 716, x: 73 }, 960, {
                     centerToleranceRatio: 0.05,
                     minMarginRatio: 0.1,
                 }),
@@ -28,7 +28,7 @@ describe('layout', () => {
 
         it('should be true even for wide footnotes near page edges', () => {
             expect(
-                isObservationCentered({ bbox: { width: 726, x: 103.82 } }, 960, {
+                isObservationCentered({ width: 726, x: 103.82 }, 960, {
                     centerToleranceRatio: 0.05,
                     minMarginRatio: 0.1,
                 }),
@@ -37,7 +37,7 @@ describe('layout', () => {
 
         it('should be false if the observation spans the majority of the page', () => {
             expect(
-                isObservationCentered({ bbox: { width: 2026, x: 232 } }, 2481, {
+                isObservationCentered({ width: 2026, x: 232 }, 2481, {
                     centerToleranceRatio: 0.05,
                     minMarginRatio: 0.1,
                 }),
@@ -46,7 +46,7 @@ describe('layout', () => {
 
         it('should be false if the observation spans more than one line', () => {
             expect(
-                isObservationCentered({ bbox: { width: 1857, x: 300 } }, 2481, {
+                isObservationCentered({ width: 1857, x: 300 }, 2481, {
                     centerToleranceRatio: 0.05,
                     minMarginRatio: 0.2,
                 }),
