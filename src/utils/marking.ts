@@ -4,14 +4,20 @@ import { PTS_TO_INCHES } from './constants';
 import { analyzeLineSpacing, computeAdaptiveLineHeightFactor } from './layout';
 
 /**
- * Determines if two consecutive items should be placed on separate lines.
+ * Determines if two consecutive items should be placed on separate lines based on spacing analysis.
  *
- * @param prev - Previous item
- * @param current - Current item
- * @param effectiveFactor - Line height factor to use
- * @param effectiveYTolerance - DPI-adjusted vertical tolerance
- * @param spacingAnalysis - Document spacing analysis results
- * @returns True if items should be on separate lines
+ * This function uses multiple criteria to determine line breaks:
+ * - Primary threshold based on average height and line height factor
+ * - Secondary check using document-wide spacing patterns
+ * - DPI-adjusted tolerance for consistent behavior across different resolutions
+ *
+ * @template T - Type extending an object with a bounding box
+ * @param prev - Previous item in the sequence
+ * @param current - Current item being evaluated
+ * @param effectiveFactor - Line height factor multiplier for threshold calculation
+ * @param effectiveYTolerance - DPI-adjusted vertical tolerance in pixels
+ * @param spacingAnalysis - Document spacing analysis containing gap measurements
+ * @returns True if items should be placed on separate lines, false otherwise
  */
 const shouldSeparateLines = <T extends { bbox: BoundingBox }>(
     prev: T,
@@ -39,13 +45,18 @@ const shouldSeparateLines = <T extends { bbox: BoundingBox }>(
 };
 
 /**
- * Processes the sorted items and assigns line indices.
+ * Processes sorted items and assigns line indices based on vertical spacing.
  *
- * @param sortedItems - Array of items sorted by y-coordinate
- * @param effectiveFactor - Line height factor to use
- * @param effectiveYTolerance - DPI-adjusted vertical tolerance
+ * This function iterates through vertically sorted items and assigns line numbers
+ * based on spacing analysis. Items that are close enough vertically are assigned
+ * to the same line, while items with significant vertical gaps start new lines.
+ *
+ * @template T - Type extending an object with a bounding box
+ * @param sortedItems - Array of items sorted by y-coordinate (top to bottom)
+ * @param effectiveFactor - Line height factor to use for threshold calculations
+ * @param effectiveYTolerance - DPI-adjusted vertical tolerance in pixels
  * @param spacingAnalysis - Document spacing analysis results
- * @returns Array of items with line index assignments
+ * @returns Array of items with assigned line index properties
  */
 const assignLineIndices = <T extends { bbox: BoundingBox }>(
     sortedItems: T[],
@@ -75,25 +86,41 @@ const assignLineIndices = <T extends { bbox: BoundingBox }>(
 };
 
 /**
- * Groups observations into lines based on vertical proximity.
+ * Groups items into lines based on vertical proximity and document spacing patterns.
  *
- * This function sorts observations by y-coordinate and then groups them into lines
- * based on their vertical proximity. The algorithm uses adaptive thresholds that
- * analyze the document's spacing patterns to distinguish between separate lines
- * and text elements that belong on the same line.
+ * This function implements an adaptive line detection algorithm that analyzes the document's
+ * spacing patterns to distinguish between separate lines and text elements that belong on
+ * the same line. The algorithm:
  *
- * Two observations are considered to be on the same line if the vertical distance
- * between them is less than a dynamically computed threshold based on:
- * - Average height of the observations
- * - Adaptive line height factor (computed from document patterns)
+ * 1. Sorts items by y-coordinate (top to bottom)
+ * 2. Analyzes document-wide spacing patterns (unless lineHeightFactor is provided)
+ * 3. Computes adaptive thresholds based on item heights and spacing analysis
+ * 4. Assigns line indices based on vertical proximity
+ * 5. Returns items sorted by line index, then by y-coordinate
+ *
+ * Two items are considered to be on the same line if the vertical distance between them
+ * is less than a dynamically computed threshold based on:
+ * - Average height of the items
+ * - Adaptive line height factor (computed from document patterns or provided)
  * - DPI-adjusted pixel tolerance
  * - Document-wide spacing analysis
  *
- * @param observations - Array of OCR observations to be grouped into lines
- * @param dpi - Document DPI (dots per inch), used to scale tolerance values appropriately
+ * @template T - Type extending an object with a bounding box
+ * @param items - Array of items to be grouped into lines
+ * @param dpi - Document DPI (dots per inch) for scaling tolerance values appropriately
  * @param pixelTolerance - Additional vertical tolerance in pixels at 72 DPI
- * @param lineHeightFactor - Optional fixed line height factor. If not provided, will be computed adaptively
- * @returns Array of observations with index properties indicating their line assignments, sorted by line then y-coordinate
+ * @param lineHeightFactor - Optional fixed line height factor. If not provided, computed adaptively from document patterns
+ * @returns Array of items with index properties indicating line assignments, sorted by line then y-coordinate
+ *
+ * @example
+ * ```typescript
+ * const observations = [
+ *   { bbox: { x: 0, y: 0, width: 100, height: 20 }, text: "First line" },
+ *   { bbox: { x: 0, y: 25, width: 100, height: 20 }, text: "Second line" }
+ * ];
+ * const lines = indexItemsAsLines(observations, 300, 5);
+ * // Result: Items with index: 0 for first line, index: 1 for second line
+ * ```
  */
 export const indexItemsAsLines = <T extends { bbox: BoundingBox }>(
     items: T[],
@@ -122,10 +149,24 @@ export const indexItemsAsLines = <T extends { bbox: BoundingBox }>(
 };
 
 /**
- * Utility function to calculate the DPI based on the image size and original PDF size.
- * @param imageSize The size of the image.
- * @param pdfSize The size of the PDF the image was exported from.
- * @returns The x and y DPI values.
+ * Calculates the DPI (dots per inch) based on image dimensions and original PDF size.
+ *
+ * This utility function helps determine the resolution at which a PDF was rasterized
+ * by comparing the resulting image dimensions with the original PDF page dimensions.
+ * The DPI values are essential for proper scaling of pixel-based tolerances and
+ * measurements throughout the document processing pipeline.
+ *
+ * @param imageSize - Dimensions of the rasterized image in pixels
+ * @param pdfSize - Original dimensions of the PDF page in points (1/72 inch)
+ * @returns Object containing x and y DPI values
+ *
+ * @example
+ * ```typescript
+ * const imageSize = { width: 2480, height: 3508 };
+ * const pdfSize = { width: 595, height: 842 }; // A4 page in points
+ * const dpi = calculateDPI(imageSize, pdfSize);
+ * // Result: { x: 300, y: 300 } for a 300 DPI scan
+ * ```
  */
 export const calculateDPI = (imageSize: Size, pdfSize: Size) => {
     const x = imageSize.width / (pdfSize.width / PTS_TO_INCHES);
@@ -135,17 +176,40 @@ export const calculateDPI = (imageSize: Size, pdfSize: Size) => {
 };
 
 /**
- * Groups observations into paragraphs based on vertical spacing and line width.
+ * Groups items into paragraphs based on vertical spacing patterns and line width analysis.
  *
- * This function analyzes the pattern of vertical spacing between observations and their widths
- * to identify paragraph breaks. A new paragraph is created when:
- * 1. There's a significant increase in vertical gap compared to previous gaps, or
- * 2. An observation's width is significantly less than the maximum width (indicating a short line)
+ * This function analyzes vertical spacing between consecutive items and their widths to
+ * identify paragraph boundaries. The algorithm uses two main heuristics:
  *
- * @param observations - Array of OCR observations (typically lines) to be grouped into paragraphs
- * @param verticalJumpFactor - Factor determining how much larger a gap needs to be to indicate a paragraph break
- * @param widthTolerance - Fraction of maximum width below which a line is considered "short" (0-1)
- * @returns Array of observations with index properties indicating their paragraph assignments
+ * 1. **Vertical jump detection**: A new paragraph starts when there's a significant
+ *    increase in vertical gap compared to previous gaps, but only when both preceding
+ *    lines are "full-width" (not short lines that might indicate natural breaks)
+ *
+ * 2. **Short line detection**: Lines significantly narrower than the maximum width
+ *    are considered paragraph-ending lines, causing the next line to start a new paragraph
+ *
+ * These heuristics work together to handle various paragraph patterns including:
+ * - Standard paragraphs with consistent spacing
+ * - Paragraphs ending with short lines
+ * - Headers and subheadings with extra spacing
+ * - Footer content separated by spacing
+ *
+ * @template T - Type extending an object with a bounding box
+ * @param items - Array of items (typically lines) to be grouped into paragraphs
+ * @param verticalJumpFactor - Multiplier determining how much larger a gap needs to be to indicate a paragraph break (e.g., 2.0 means 200% larger)
+ * @param widthTolerance - Fraction of maximum width below which a line is considered "short" (0-1, e.g., 0.8 means 80% of max width)
+ * @returns Array of items with index properties indicating paragraph assignments, sorted by paragraph then y-coordinate
+ *
+ * @example
+ * ```typescript
+ * const lines = [
+ *   { bbox: { y: 0, width: 400, height: 20 }, text: "First paragraph line" },
+ *   { bbox: { y: 25, width: 300, height: 20 }, text: "Short line ending" }, // Short line
+ *   { bbox: { y: 55, width: 400, height: 20 }, text: "Second paragraph" }   // Gap + new para
+ * ];
+ * const paragraphs = indexItemsAsParagraphs(lines, 2.0, 0.8);
+ * // Result: First two lines index: 0, third line index: 1
+ * ```
  */
 export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox }>(
     items: T[],
