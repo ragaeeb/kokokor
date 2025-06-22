@@ -297,5 +297,277 @@ describe('paragraphs', () => {
 
             expect(actual).toEqual(textLines);
         });
+
+        it('should handle empty input array', () => {
+            const actual = mapTextLinesToParagraphs([]);
+            expect(actual).toEqual([]);
+        });
+
+        it('should separate body content from footnotes', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, text: 'Body line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, text: 'Body line 2' },
+                { bbox: { height: 10, width: 80, x: 0, y: 200 }, isFootnote: true, text: 'Footnote 1' },
+                { bbox: { height: 10, width: 80, x: 0, y: 220 }, isFootnote: true, text: 'Footnote 2' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            // Should have body content followed by footnotes
+            expect(actual).toHaveLength(2);
+            expect(actual[0].text).toContain('Body line');
+            expect(actual[1].text).toContain('Footnote');
+        });
+
+        it('should handle only footnotes', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 80, x: 0, y: 200 }, isFootnote: true, text: 'Footnote 1' },
+                { bbox: { height: 10, width: 80, x: 0, y: 220 }, isFootnote: true, text: 'Footnote 2' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toHaveLength(1);
+            expect(actual[0].text).toContain('Footnote');
+            expect(actual[0].isFootnote).toBe(true);
+        });
+
+        it('should handle only body content without footnotes', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, text: 'Body line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, text: 'Body line 2' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toEqual([
+                {
+                    bbox: {
+                        height: 30,
+                        width: 100,
+                        x: 0,
+                        y: 0,
+                    },
+                    text: 'Body line 1 Body line 2',
+                },
+            ]);
+        });
+
+        it('should preserve poetic lines individually', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, text: 'Prose line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, isPoetic: true, text: 'Poetry line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 40 }, isPoetic: true, text: 'Poetry line 2' },
+                { bbox: { height: 10, width: 100, x: 0, y: 60 }, text: 'Prose line 2' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toHaveLength(4); // 1 prose paragraph + 2 individual poetry lines + 1 prose paragraph
+            expect(actual[0].text).toBe('Prose line 1');
+            expect(actual[1].text).toBe('Poetry line 1');
+            expect(actual[1].isPoetic).toBe(true);
+            expect(actual[2].text).toBe('Poetry line 2');
+            expect(actual[2].isPoetic).toBe(true);
+            expect(actual[3].text).toBe('Prose line 2');
+        });
+
+        it('should handle multiple consecutive poetic lines', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, isPoetic: true, text: 'Poetry line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, isPoetic: true, text: 'Poetry line 2' },
+                { bbox: { height: 10, width: 100, x: 0, y: 40 }, isPoetic: true, text: 'Poetry line 3' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toHaveLength(3);
+            expect(actual[0].text).toBe('Poetry line 1');
+            expect(actual[0].isPoetic).toBe(true);
+            expect(actual[1].text).toBe('Poetry line 2');
+            expect(actual[1].isPoetic).toBe(true);
+            expect(actual[2].text).toBe('Poetry line 3');
+            expect(actual[2].isPoetic).toBe(true);
+        });
+
+        it('should group prose lines then flush when encountering poetry', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, text: 'Prose line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, text: 'Prose line 2' },
+                { bbox: { height: 10, width: 100, x: 0, y: 40 }, text: 'Prose line 3' },
+                { bbox: { height: 10, width: 100, x: 0, y: 60 }, isPoetic: true, text: 'Poetry line' },
+                { bbox: { height: 10, width: 100, x: 0, y: 80 }, text: 'More prose 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 100 }, text: 'More prose 2' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toEqual([
+                {
+                    bbox: {
+                        height: 50,
+                        width: 100,
+                        x: 0,
+                        y: 0,
+                    },
+                    text: 'Prose line 1 Prose line 2 Prose line 3',
+                },
+                {
+                    bbox: {
+                        height: 10,
+                        width: 100,
+                        x: 0,
+                        y: 60,
+                    },
+                    isPoetic: true,
+                    text: 'Poetry line',
+                },
+                {
+                    bbox: {
+                        height: 30,
+                        width: 100,
+                        x: 0,
+                        y: 80,
+                    },
+                    text: 'More prose 1 More prose 2',
+                },
+            ]);
+        });
+
+        it('should flush remaining prose lines at the end', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, isPoetic: true, text: 'Poetry line' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, text: 'Prose line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 40 }, text: 'Prose line 2' },
+                { bbox: { height: 10, width: 100, x: 0, y: 60 }, text: 'Prose line 3' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toEqual([
+                {
+                    bbox: {
+                        height: 10,
+                        width: 100,
+                        x: 0,
+                        y: 0,
+                    },
+                    isPoetic: true,
+                    text: 'Poetry line',
+                },
+                {
+                    bbox: {
+                        height: 50,
+                        width: 100,
+                        x: 0,
+                        y: 20,
+                    },
+                    text: 'Prose line 1 Prose line 2 Prose line 3',
+                },
+            ]);
+        });
+
+        it('should handle all prose lines without poetry', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, text: 'Prose line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, text: 'Prose line 2' },
+                { bbox: { height: 10, width: 100, x: 0, y: 40 }, text: 'Prose line 3' },
+                { bbox: { height: 10, width: 100, x: 0, y: 60 }, text: 'Prose line 4' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toEqual([
+                {
+                    bbox: {
+                        height: 70,
+                        width: 100,
+                        x: 0,
+                        y: 0,
+                    },
+                    text: 'Prose line 1 Prose line 2 Prose line 3 Prose line 4',
+                },
+            ]);
+        });
+
+        it('should handle mixed footnotes with body content including poetry', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, text: 'Body prose 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, isPoetic: true, text: 'Body poetry' },
+                { bbox: { height: 10, width: 100, x: 0, y: 40 }, text: 'Body prose 2' },
+                { bbox: { height: 10, width: 80, x: 0, y: 200 }, isFootnote: true, text: 'Footnote prose 1' },
+                {
+                    bbox: { height: 10, width: 80, x: 0, y: 220 },
+                    isFootnote: true,
+                    isPoetic: true,
+                    text: 'Footnote poetry',
+                },
+                { bbox: { height: 10, width: 80, x: 0, y: 240 }, isFootnote: true, text: 'Footnote prose 2' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toEqual([
+                {
+                    bbox: {
+                        height: 10,
+                        width: 100,
+                        x: 0,
+                        y: 0,
+                    },
+                    text: 'Body prose 1',
+                },
+                {
+                    bbox: {
+                        height: 10,
+                        width: 100,
+                        x: 0,
+                        y: 20,
+                    },
+                    isPoetic: true,
+                    text: 'Body poetry',
+                },
+                {
+                    bbox: {
+                        height: 10,
+                        width: 100,
+                        x: 0,
+                        y: 40,
+                    },
+                    text: 'Body prose 2',
+                },
+                {
+                    bbox: {
+                        height: 10,
+                        width: 80,
+                        x: 0,
+                        y: 200,
+                    },
+                    isFootnote: true,
+                    text: 'Footnote prose 1',
+                },
+                {
+                    bbox: {
+                        height: 10,
+                        width: 80,
+                        x: 0,
+                        y: 220,
+                    },
+                    isFootnote: true,
+                    isPoetic: true,
+                    text: 'Footnote poetry',
+                },
+                {
+                    bbox: {
+                        height: 10,
+                        width: 80,
+                        x: 0,
+                        y: 240,
+                    },
+                    isFootnote: true,
+                    text: 'Footnote prose 2',
+                },
+            ]);
+        });
     });
 });
