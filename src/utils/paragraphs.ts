@@ -57,7 +57,7 @@ export const flipAndAlignObservations = (
 export const mapObservationsToTextLines = (
     observations: Observation[],
     dpi: BoundingBox,
-    opts: MapObservationsToTextLinesOptions,
+    opts: MapObservationsToTextLinesOptions = DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS,
 ) => {
     const options: MapObservationsToTextLinesOptions = {
         ...DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS,
