@@ -1,132 +1,147 @@
 import { describe, expect, it } from 'bun:test';
 
-import { calculateAverageProseDensity, isValidPoetryPair, isWidePoeticLine } from './poetry';
+import { DEFAULT_POETRY_OPTIONS } from './constants';
+import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
 
 describe('poetry', () => {
     describe.only('isValidPoetryPair', () => {
         it('should detect the valid pair that takes up full width', () => {
-            const actual = isValidPoetryPair(
-                {
-                    bbox: {
-                        height: 258.94726753234863,
-                        width: 1865.3965878086237,
-                        x: 572.5475456774307,
-                        y: 3374.017852695907,
+            const actual = isPoeticGroup(
+                [
+                    {
+                        bbox: {
+                            height: 258.94726753234863,
+                            width: 1865.3965878086237,
+                            x: 572.5475456774307,
+                            y: 3374.017852695907,
+                        },
+                        text: 'أنا عبدٌ أنا ربٌّ',
                     },
-                    text: 'أنا عبدٌ أنا ربٌّ',
-                },
-                {
-                    bbox: {
-                        height: 258.94726753234863,
-                        width: 1893.100440338368,
-                        x: 2557.994506287425,
-                        y: 3374.0178519176575,
+                    {
+                        bbox: {
+                            height: 258.94726753234863,
+                            width: 1893.100440338368,
+                            x: 2557.994506287425,
+                            y: 3374.0178519176575,
+                        },
+                        text: 'أنا عز أنا ذلَّ',
                     },
-                    text: 'أنا عز أنا ذلَّ',
-                },
+                ],
                 4959,
+                0,
+                DEFAULT_POETRY_OPTIONS,
             );
 
             expect(actual).toBeTrue();
         });
 
         it('should detect the valid pair that is centered', () => {
-            const actual = isValidPoetryPair(
-                {
-                    bbox: {
-                        height: 93.2325592041014,
+            const actual = isPoeticGroup(
+                [
+                    {
+                        bbox: {
+                            height: 93.2325592041014,
 
-                        width: 600.22509765625,
+                            width: 600.22509765625,
 
-                        x: 479.2495638535215,
+                            x: 479.2495638535215,
 
-                        y: 36.99999869252285,
+                            y: 36.99999869252285,
+                        },
+
+                        text: 'أعادوا بها معنى سواع ومثله',
                     },
+                    {
+                        bbox: {
+                            height: 74.4883728027343,
 
-                    text: 'أعادوا بها معنى سواع ومثله',
-                },
-                {
-                    bbox: {
-                        height: 74.4883728027343,
+                            width: 609.5309448242188,
 
-                        width: 609.5309448242188,
+                            x: 1260.9380962813182,
 
-                        x: 1260.9380962813182,
+                            y: 46.511627718234266,
+                        },
 
-                        y: 46.511627718234266,
+                        text: 'يغوث وود بئس ذلك من ود',
                     },
-
-                    text: 'يغوث وود بئس ذلك من ود',
-                },
+                ],
                 2480,
+                0,
+                DEFAULT_POETRY_OPTIONS,
             );
 
             expect(actual).toBeTrue();
         });
 
         it('should detect a valid pair even that has a footnote', () => {
-            const actual = isValidPoetryPair(
-                {
-                    bbox: {
-                        height: 84.04650878906281,
+            const actual = isPoeticGroup(
+                [
+                    {
+                        bbox: {
+                            height: 84.04650878906281,
 
-                        width: 632,
+                            width: 632,
 
-                        x: 469.94373167906724,
+                            x: 469.94373167906724,
 
-                        y: 413.9534900240734,
+                            y: 413.9534900240734,
+                        },
+
+                        text: 'وكم طائف حول القبور مقبلاً',
                     },
+                    {
+                        bbox: {
+                            height: 114.97213745117172,
 
-                    text: 'وكم طائف حول القبور مقبلاً',
-                },
-                {
-                    bbox: {
-                        height: 114.97213745117172,
+                            width: 664.7333374023438,
 
-                        width: 664.7333374023438,
+                            x: 1240.5349732146512,
 
-                        x: 1240.5349732146512,
+                            y: 398.09846366479695,
+                        },
 
-                        y: 398.09846366479695,
+                        text: 'ويستلم الأركان منهن باليد (١)',
                     },
-
-                    text: 'ويستلم الأركان منهن باليد (١)',
-                },
+                ],
                 2480,
+                0,
+                DEFAULT_POETRY_OPTIONS,
             );
 
             expect(actual).toBeTrue();
         });
 
         it('should not detect a split up line as poetry', () => {
-            const actual = isValidPoetryPair(
-                {
-                    bbox: {
-                        height: 222.41071428571385,
-                        width: 627.9552903211753,
-                        x: 757.240232419881,
-                        y: 1257.1726190476193,
+            const actual = isPoeticGroup(
+                [
+                    {
+                        bbox: {
+                            height: 222.41071428571385,
+                            width: 627.9552903211753,
+                            x: 757.240232419881,
+                            y: 1257.1726190476193,
+                        },
+                        text: 'أليس اللَّه',
                     },
-                    text: 'أليس اللَّه',
-                },
-                {
-                    bbox: {
-                        height: 240.3488254547117,
-                        width: 2428.709411155177,
-                        x: 1357.4917061605674,
-                        y: 1266.4534951738071,
+                    {
+                        bbox: {
+                            height: 240.3488254547117,
+                            width: 2428.709411155177,
+                            x: 1357.4917061605674,
+                            y: 1266.4534951738071,
+                        },
+                        text: 'ل يقول: (إِنَّ الدِّينَ عِندَ ٱللَّهِ الْإِسْلَٰامُ)',
                     },
-                    text: 'ل يقول: (إِنَّ الدِّينَ عِندَ ٱللَّهِ الْإِسْلَٰامُ)',
-                },
+                ],
                 4959,
+                0,
+                DEFAULT_POETRY_OPTIONS,
             );
 
             expect(actual).toBeFalse();
         });
-    });
 
-    describe('isWidePoeticLine', () => {
-        it.only('should detect the valid line', () => {
+        it('should detect the valid line', () => {
             const groups = [
                 [
                     {
@@ -397,19 +412,26 @@ describe('poetry', () => {
                 ],
             ];
 
-            const avgProseWordDensity = calculateAverageProseDensity(groups.flat(), 4959);
+            const avgProseWordDensity = calculateAverageProseDensity(groups.flat(), 4959, DEFAULT_POETRY_OPTIONS);
 
-            const poeticLines = groups
-                .filter((g) => g.length === 1)
+            const poetry = groups
+                .filter((g) => {
+                    return isPoeticGroup(g, 4959, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
+                })
                 .flat()
-                .flatMap((o) => {
-                    const isValid = isWidePoeticLine(o, 4959, avgProseWordDensity);
-                    return isValid ? [o.text] : [];
-                });
+                .map((o) => o.text);
 
-            expect(poeticLines).toEqual([
+            expect(poetry).toEqual([
                 'وفي السر أسرارٌ دقاق لطيفة تراق دمانا جهرةً لو بها بحنا',
                 'علمُ قومي بي جهل إن شأني لأجلُّ',
+                'أنا عبدٌ أنا ربٌّ',
+                'أنا عز أنا ذلَّ',
+                'أنا دنيا أنا أخرى',
+                'أنا بعضٌ أنا كلُّ',
+                'أنا معشوق لذاتي',
+                'لست عنه الدهر أسلو',
+                'الربُّ عبدٌ والعبد رب',
+                'فليت شعري من المكلف',
             ]);
         });
     });

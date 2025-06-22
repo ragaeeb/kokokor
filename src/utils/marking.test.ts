@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 
-import { indexObservationsAsLines, indexObservationsAsParagraphs } from './marking';
+import { indexItemsAsLines, indexItemsAsParagraphs } from './marking';
 
 describe('marking', () => {
-    describe('indexObservationsAsLines', () => {
+    describe('indexItemsAsLines', () => {
         it('should handle the large image coordinates', () => {
             const observations = [
                 {
@@ -206,7 +206,7 @@ describe('marking', () => {
                 },
             ];
 
-            const indexed = indexObservationsAsLines(observations, 599, 5);
+            const indexed = indexItemsAsLines(observations, 599, 5);
             expect(indexed).toEqual([
                 {
                     bbox: {
@@ -432,7 +432,7 @@ describe('marking', () => {
         });
 
         it('should not group the 2nd line after the heading with the first line', () => {
-            const actual = indexObservationsAsLines(
+            const actual = indexItemsAsLines(
                 [
                     {
                         bbox: {
@@ -561,7 +561,7 @@ describe('marking', () => {
         it('should handle single observation', () => {
             const observations = [{ bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'Single observation' }];
 
-            const result = indexObservationsAsLines(observations, 72, 5, 0.49);
+            const result = indexItemsAsLines(observations, 72, 5, 0.49);
             expect(result).toEqual([
                 { bbox: { height: 20, width: 100, x: 10, y: 10 }, index: 0, text: 'Single observation' },
             ]);
@@ -575,7 +575,7 @@ describe('marking', () => {
                 { bbox: { height: 20, width: 100, x: 120, y: 80 }, text: 'Second line, first y' },
             ];
 
-            const indexed = indexObservationsAsLines(observations, 72, 5, 0.49);
+            const indexed = indexItemsAsLines(observations, 72, 5, 0.49);
 
             // Should be sorted by line then y
             expect(indexed[0].text).toBe('First line, first y');
@@ -585,9 +585,9 @@ describe('marking', () => {
         });
     });
 
-    describe('indexObservationsAsParagraphs', () => {
+    describe('indexItemsAsParagraphs', () => {
         it('should keep each footnote in its own paragraph', () => {
-            const actual = indexObservationsAsParagraphs(
+            const actual = indexItemsAsParagraphs(
                 [
                     {
                         bbox: {
@@ -1036,7 +1036,7 @@ describe('marking', () => {
         });
 
         it('should not introduce a gap', () => {
-            const actual = indexObservationsAsParagraphs(
+            const actual = indexItemsAsParagraphs(
                 [
                     {
                         bbox: {
@@ -1086,7 +1086,7 @@ describe('marking', () => {
         });
 
         it('should index the paragraphs consistently', () => {
-            const paragraphs = indexObservationsAsParagraphs(
+            const paragraphs = indexItemsAsParagraphs(
                 [
                     {
                         bbox: {
@@ -1504,7 +1504,7 @@ describe('marking', () => {
                 { bbox: { height: 20, width: 500, x: 10, y: 150 }, text: 'Second paragraph line 2' },
             ];
 
-            const paragraphs = indexObservationsAsParagraphs(observations, 2, 0.85);
+            const paragraphs = indexItemsAsParagraphs(observations, 2, 0.85);
 
             expect(paragraphs[0].index).toBe(0);
             expect(paragraphs[1].index).toBe(0); // Same paragraph
@@ -1519,7 +1519,7 @@ describe('marking', () => {
                 { bbox: { height: 20, width: 500, x: 10, y: 70 }, text: 'Next paragraph' }, // Should be new paragraph
             ];
 
-            const paragraphs = indexObservationsAsParagraphs(observations, 2, 0.85);
+            const paragraphs = indexItemsAsParagraphs(observations, 2, 0.85);
 
             expect(paragraphs[0].index).toBe(0);
             expect(paragraphs[1].index).toBe(0); // Same paragraph
@@ -1527,14 +1527,14 @@ describe('marking', () => {
         });
 
         it('should handle empty array', () => {
-            const result = indexObservationsAsParagraphs([], 2, 0.85);
+            const result = indexItemsAsParagraphs([], 2, 0.85);
             expect(result).toEqual([]);
         });
 
         it('should handle single observation', () => {
             const observations = [{ bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'Single observation' }];
 
-            const result = indexObservationsAsParagraphs(observations, 2, 0.85);
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
             expect(result).toEqual([
                 { bbox: { height: 20, width: 100, x: 10, y: 10 }, index: 0, text: 'Single observation' },
             ]);
@@ -1548,7 +1548,7 @@ describe('marking', () => {
                 { bbox: { height: 20, width: 500, x: 10, y: 160 }, text: 'Line 4' }, // Gap of 90 (> 30*2)
             ];
 
-            const paragraphs = indexObservationsAsParagraphs(observations, 2, 0.85);
+            const paragraphs = indexItemsAsParagraphs(observations, 2, 0.85);
 
             expect(paragraphs[0].index).toBe(0);
             expect(paragraphs[1].index).toBe(0);
@@ -1564,7 +1564,7 @@ describe('marking', () => {
                 { bbox: { height: 10, width: 200, x: 10, y: 150 }, index: 2, text: 'Line 3' },
             ];
 
-            const result = indexObservationsAsParagraphs(observations, 2, 0.85);
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
 
             expect(result[0].index).toBe(result[1].index);
             expect(result[1].index).not.toBe(result[2].index);
@@ -1578,7 +1578,7 @@ describe('marking', () => {
                 { bbox: { height: 20, width: 500, x: 10, y: 110 }, text: 'Para 2 line 1' },
             ];
 
-            const paragraphs = indexObservationsAsParagraphs(observations, 2, 0.85);
+            const paragraphs = indexItemsAsParagraphs(observations, 2, 0.85);
 
             // Should be sorted by paragraph then y
             expect(paragraphs[0].text).toBe('Para 1 line 1');
@@ -1594,7 +1594,7 @@ describe('marking', () => {
                 { bbox: { height: 10, width: 50, x: 10, y: 50 }, index: 2, text: 'Line 3' }, // Width below tolerance
             ];
 
-            const result = indexObservationsAsParagraphs(observations, 2, 0.85);
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
 
             expect(result[0].index).toBe(result[1].index); // Same paragraph
             expect(result[1].index).not.toBe(result[2].index); // New paragraph

@@ -19,49 +19,48 @@ export type BoundingBox = Size & {
  * Configuration options for OCR result processing and paragraph reconstruction.
  * These options control how text observations are grouped, aligned, and formatted.
  */
-export type BuildTextBoxOptions = Partial<CenteringOptions> &
-    Partial<FixTypoOptions> & {
-        /**
-         * The default DPI to use when the OCR result doesn't provide DPI information.
-         * This ensures consistent scaling even with incomplete metadata.
-         * @default 72
-         */
-        readonly fallbackDPI?: number;
+export type BuildTextBoxOptions = Partial<CenteringOptions> & {
+    /**
+     * The default DPI to use when the OCR result doesn't provide DPI information.
+     * This ensures consistent scaling even with incomplete metadata.
+     * @default 72
+     */
+    readonly fallbackDPI?: number;
 
-        /**
-         * The ratio used to consider what a line is based on the vertical proximity.
-         * @default 0.49
-         */
-        readonly lineHeightFactor?: number;
+    /**
+     * The ratio used to consider what a line is based on the vertical proximity.
+     * @default 0.49
+     */
+    readonly lineHeightFactor?: number;
 
-        /**
-         * Vertical tolerance in pixels (at 72 DPI) for line detection.
-         * Higher values will be more lenient in grouping text with vertical offsets into the same line.
-         * @default 5
-         */
-        readonly pixelTolerance?: number;
+    /**
+     * Vertical tolerance in pixels (at 72 DPI) for line detection.
+     * Higher values will be more lenient in grouping text with vertical offsets into the same line.
+     * @default 5
+     */
+    readonly pixelTolerance?: number;
 
-        /**
-         * The target DPI for x-coordinate normalization.
-         * Used to ensure consistent alignment thresholds regardless of source document resolution.
-         * @default 300
-         */
-        readonly standardDpiX?: number;
+    /**
+     * The target DPI for x-coordinate normalization.
+     * Used to ensure consistent alignment thresholds regardless of source document resolution.
+     * @default 300
+     */
+    readonly standardDpiX?: number;
 
-        /**
-         * Factor determining how much larger a vertical gap needs to be to indicate a paragraph break.
-         * A value of 2 means a gap twice as large as the previous gap will start a new paragraph.
-         * @default 2
-         */
-        readonly verticalJumpFactor?: number;
+    /**
+     * Factor determining how much larger a vertical gap needs to be to indicate a paragraph break.
+     * A value of 2 means a gap twice as large as the previous gap will start a new paragraph.
+     * @default 2
+     */
+    readonly verticalJumpFactor?: number;
 
-        /**
-         * Fraction of maximum line width below which a line is considered "short" (0-1).
-         * Short lines typically indicate paragraph endings and trigger paragraph breaks.
-         * @default 0.85
-         */
-        readonly widthTolerance?: number;
-    };
+    /**
+     * Fraction of maximum line width below which a line is considered "short" (0-1).
+     * Short lines typically indicate paragraph endings and trigger paragraph breaks.
+     * @default 0.85
+     */
+    readonly widthTolerance?: number;
+};
 
 /**
  * Configuration options for determining if an observation is centered.
@@ -87,39 +86,6 @@ export type CenteringOptions = {
 };
 
 /**
- * Configuration options for fixing typos in OCR text using alignment algorithms.
- * These options control how text tokens are compared, aligned, and merged during typo correction.
- */
-export type FixTypoOptions = {
-    /**
-     * High similarity threshold (0.0 to 1.0) for detecting and removing duplicate tokens.
-     * Used in post-processing to eliminate redundant tokens that are nearly identical.
-     * Should typically be higher than similarityThreshold to catch only very similar duplicates.
-     * @default 0.9
-     * @example 0.95 // Removes tokens that are 95% or more similar
-     */
-    readonly highSimilarityThreshold: number;
-
-    log?(message: string): void;
-
-    /**
-     * Similarity threshold (0.0 to 1.0) for determining if two tokens should be aligned.
-     * Higher values require closer matches, lower values are more permissive.
-     * Used in the Needleman-Wunsch alignment algorithm for token matching.
-     * @default 0.7
-     * @example 0.8 // Requires 80% similarity for token alignment
-     */
-    readonly similarityThreshold: number;
-
-    /**
-     * Array of special symbols that should be preserved during typo correction.
-     * These symbols (like honorifics or religious markers) take precedence in token selection.
-     * @example ['ﷺ', '﷽', 'ﷻ'] // Common Arabic religious symbols
-     */
-    readonly typoSymbols: string[];
-};
-
-/**
  * Represents an observation with an index used for grouping observations by line or paragraph.
  * This extends the base Observation type by adding an index property for sorting and grouping.
  */
@@ -131,6 +97,15 @@ export type IndexedObservation = Observation & {
     readonly index: number;
 };
 
+export type MapObservationsToTextLinesOptions = CenteringOptions & {
+    horizontalLines?: BoundingBox[];
+    lineHeightFactor?: number;
+    log?: (message: string, ...args: any[]) => void;
+    pixelTolerance?: number;
+    poetryDetectionOptions?: PoetryDetectionOptions;
+    rectangles?: BoundingBox[];
+};
+
 /**
  * Represents a basic text observation from OCR with position and content.
  * Contains the text content and its bounding box coordinates within the document.
@@ -139,7 +114,7 @@ export type Observation = {
     /**
      * The bounding box defining the position and dimensions of the text in the document.
      */
-    readonly bbox: BoundingBox;
+    bbox: BoundingBox;
 
     /**
      * The text content of the observation.
@@ -147,47 +122,51 @@ export type Observation = {
     text: string;
 };
 
-export type ObservationLayoutInfo = {
-    /** If the text is centered on the page. This is true if there is at least some padding around the text and it does not span up to the margins. */
-    isCentered?: boolean;
-
-    /** If this text is a footnote. This is generally associated with texts appearing below the last horizontal line. */
-    isFootnote?: boolean;
-
-    /** If the text represents a heading. This is generally associated with texts that are surrounded in rectangles. */
-    isHeading?: boolean;
-};
-
 /**
- * Represents the complete result of an OCR operation on a document.
- * Contains the document dimensions, observations, and optional structural elements.
+ * Configuration options to fine-tune the poetry detection logic.
  */
-export type OcrResult = {
+export type PoetryDetectionOptions = CenteringOptions & {
     /**
-     * Matching observations extracted from surya for typo corrections.
+     * Maximum allowed vertical gap between observations to be considered a poetry pair.
+     * As a ratio of the average height of the two observations.
+     * @default 2.0 (200% of average height)
      */
-    readonly alternateObservations?: Observation[];
+    maxVerticalGapRatio: number;
 
     /**
-     * The dimensions and DPI information of the document.
+     * For merged lines: The minimum width a line must have to be considered for
+     * this heuristic, as a ratio of the image width.
+     * @default 0.6 (60%)
      */
-    readonly dpi: BoundingBox;
+    minWidthRatioForMerged: number;
 
     /**
-     * Optional array of horizontal lines detected in the document.
-     * Often used for identifying page breaks, section separators, or footers.
+     * The minimum number of words a line must have to be considered poetry.
+     * Helps filter out noise like page numbers or single-word labels.
+     * @default 2
      */
-    readonly horizontalLines?: BoundingBox[];
+    minWordCount: number;
 
     /**
-     * Array of text observations extracted from the document.
+     * For paired lines: How similar in width two hemistichs must be.
+     * The check is `|w1 - w2| / avg(w1, w2) < ratio`.
+     * @default 0.4 (40%)
      */
-    readonly observations: Observation[];
+    pairWidthSimilarityRatio: number;
 
     /**
-     * Optional array of rectangle coordinates to process chapter titles.
+     * For paired lines: How similar in word count two hemistichs must be.
+     * The check is `|c1 - c2| / max(c1, c2) < ratio`.
+     * @default 0.5 (50%)
      */
-    readonly rectangles?: BoundingBox[];
+    pairWordCountSimilarityRatio: number;
+
+    /**
+     * For merged lines: A line is poetic if its density (words/pixel) is less than
+     * this ratio multiplied by the average prose density of the document.
+     * @default 0.8 (80%)
+     */
+    wordDensityComparisonRatio: number;
 };
 
 export type RebuildOptions = BuildTextBoxOptions & {
@@ -211,38 +190,19 @@ export type Size = {
     readonly width: number;
 };
 
-/** the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format. (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner. */
-export type SuryaBoundingBox = [number, number, number, number];
-
-/**
- * Results from the Surya OCR engine.
- * See more info at https://github.com/datalab-to/surya?tab=readme-ov-file#ocr-text-recognition
- */
-export type SuryaPageOcrResult = {
-    /** The bbox for the image in (x1, y1, x2, y2) format. (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner. All line bboxes will be contained within this bbox. */
-    readonly image_bbox: SuryaBoundingBox;
-
-    /** The page number in the file */
-    readonly page: number;
-
-    /** The detected text and bounding boxes for each line */
-    readonly text_lines: SuryaTextLine[];
-};
-
 /**
  * A reconstructed text paragraph from the raw OCR data.
  */
-export type TextBlock = ObservationLayoutInfo & {
-    isPoetry?: boolean;
+export type TextBlock = IndexedObservation & {
+    /** If the text is centered on the page. This is true if there is at least some padding around the text and it does not span up to the margins. */
+    isCentered?: boolean;
 
-    /** The text associated with this text block */
-    readonly text: string;
-};
+    /** If this text is a footnote. This is generally associated with texts appearing below the last horizontal line. */
+    isFootnote?: boolean;
 
-type SuryaTextLine = {
-    /** the axis-aligned rectangle for the text line in (x1, y1, x2, y2) format. (x1, y1) is the top left corner, and (x2, y2) is the bottom right corner. */
-    readonly bbox: SuryaBoundingBox;
+    /** If the text represents a heading. This is generally associated with texts that are surrounded in rectangles. */
+    isHeading?: boolean;
 
-    /** the text in the line */
-    readonly text: string;
+    /** Is a line of poem. These will not be merged into paragraphs. */
+    isPoetic?: boolean;
 };

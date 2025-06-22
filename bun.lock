@@ -7,6 +7,7 @@
         "@eslint/js": "^9.29.0",
         "@types/bun": "^1.2.16",
         "@types/node": "^24.0.1",
+        "baburchi": "^1.0.0",
         "eslint": "^9.29.0",
         "eslint-config-prettier": "^10.1.5",
         "eslint-plugin-perfectionist": "^4.14.0",
@@ -261,6 +262,8 @@
     "argv-formatter": ["argv-formatter@1.0.0", "", {}, "sha512-F2+Hkm9xFaRg+GkaNnbwXNDV5O6pnCFEmqyhvfC/Ic5LbgOWjJh3L+mN/s91rxVL3znE7DYVpW0GJFT+4YBgWw=="],
 
     "array-ify": ["array-ify@1.0.0", "", {}, "sha512-c5AMf34bKdvPhQ7tBGhqkgKNUzMr4WUs+WDtC2ZUGOUncbxKMTvqxYctiseW3+L4bA8ec+GcZ6/A/FW4m8ukng=="],
+
+    "baburchi": ["baburchi@1.0.0", "", {}, "sha512-euJuCmkkEKxEZG4sRXqznRN5FG7FYcZbEMgPZsF2pKQ9qahTscRN8X9euTm2M4A+q0ofA6ZB1wRqVZHhdO1/0A=="],
 
     "balanced-match": ["balanced-match@1.0.2", "", {}, "sha512-3oSeUO0TMV67hN1AmbXsK4yaqU7tjiHlbxRDZOpH0KW9+CeX4bRAaX0Anxt0tx2MrpRpWwQaPwIlISEJhYU5Pw=="],
 

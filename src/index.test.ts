@@ -1,20 +1,41 @@
 import { describe, expect, it } from 'bun:test';
 import path from 'node:path';
 
-import type { BoundingBox, Observation, OcrResult, SuryaPageOcrResult } from './types';
+import type { BoundingBox, Observation } from './types';
 
-import {
-    alignAndAdjustObservations,
-    buildTextBlocksFromOCR,
-    filterHorizontalLinesOutsideRectangles,
-    mapSuryaPageResultToObservations,
-    rebuildParagraphs,
-} from './index';
+import { formatTextBlocks, mapObservationsToTextLines, mapTextLinesToParagraphs } from './index';
 
 type Metadata = {
-    dpi: BoundingBox;
+    dpi: Partial<BoundingBox>;
     horizontal_lines?: BoundingBox[];
     rectangles?: BoundingBox[];
+};
+
+/**
+ * Represents the complete result of an OCR operation on a document.
+ * Contains the document dimensions, observations, and optional structural elements.
+ */
+type OcrResult = {
+    /**
+     * The dimensions and DPI information of the document.
+     */
+    readonly dpi: BoundingBox;
+
+    /**
+     * Optional array of horizontal lines detected in the document.
+     * Often used for identifying page breaks, section separators, or footers.
+     */
+    readonly horizontalLines?: BoundingBox[];
+
+    /**
+     * Array of text observations extracted from the document.
+     */
+    readonly observations: Observation[];
+
+    /**
+     * Optional array of rectangle coordinates to process chapter titles.
+     */
+    readonly rectangles?: BoundingBox[];
 };
 
 type OcrTestResults = { observations: Observation[] };
@@ -25,32 +46,17 @@ const loadOCRData = async (only: string[] = []) => {
     ).json();
     const structures: Record<string, Metadata> = (await Bun.file(path.join('test', 'mixed', 'structures.json')).json())
         .result;
-    const surya: Record<string, SuryaPageOcrResult[]> = await Bun.file(path.join('test', 'mixed', 'surya.json')).json();
     const fileToData: Record<string, OcrResult> = {};
 
     Object.entries(fileToTestData).forEach(([imageFile, ocrResult]) => {
         if (only.length === 0 || only.includes(imageFile)) {
             const structure = structures[imageFile];
-            const [suryaPage] = surya[imageFile.split('.')[0]];
-
-            const suryaObservations = mapSuryaPageResultToObservations(suryaPage);
-            const horizontalLines =
-                structure.rectangles && structure.horizontal_lines
-                    ? filterHorizontalLinesOutsideRectangles(structure.rectangles, structure.horizontal_lines)
-                    : structure.horizontal_lines;
 
             fileToData[imageFile] = {
-                dpi: structure.dpi,
-                ...(horizontalLines && {
-                    horizontalLines,
-                }),
-                ...(structure.rectangles && { rectangles: structure.rectangles }),
-                alternateObservations: alignAndAdjustObservations(suryaObservations, {
-                    dpiX: structure.dpi.x,
-                    dpiY: structure.dpi.y,
-                    imageWidth: structure.dpi.width,
-                }).observations,
+                dpi: { x: 72, y: 72, ...structure.dpi } as BoundingBox,
+                horizontalLines: structure.horizontal_lines,
                 observations: ocrResult.observations,
+                rectangles: structure.rectangles,
             };
         }
     });
@@ -59,12 +65,17 @@ const loadOCRData = async (only: string[] = []) => {
 };
 
 describe('index', () => {
-    describe('rebuildParagraphs', async () => {
+    describe('formatTextBlocks', async () => {
         const testData = await loadOCRData(process.env.ONLY?.split(',').map((f) => f.trim()));
 
         it.each(Object.keys(testData))('should handle %s', async (imageFile) => {
             const ocrData = testData[imageFile];
-            const actual = rebuildParagraphs(ocrData, { footerSymbol: '___', typoSymbols: ['ﷺ'] });
+            const lines = mapObservationsToTextLines(ocrData.observations, ocrData.dpi, {
+                horizontalLines: ocrData.horizontalLines,
+                rectangles: ocrData.rectangles,
+            });
+            const blocks = mapTextLinesToParagraphs(lines);
+            const actual = formatTextBlocks(blocks, '___');
 
             const parsedFile = path.parse(path.join('test', 'mixed', imageFile));
             const expectationFile = Bun.file(path.format({ dir: parsedFile.dir, ext: '.txt', name: parsedFile.name }));
@@ -76,19 +87,6 @@ describe('index', () => {
 
             const expected = await expectationFile.text();
             expect(actual).toEqual(expected);
-        });
-    });
-
-    describe('buildTextBlocksFromOCR', () => {
-        it('should return the text blocks for ', async () => {
-            const testData = await loadOCRData();
-            const ocrData = testData['1.jpg'];
-            const actual = buildTextBlocksFromOCR(ocrData, { typoSymbols: ['ﷺ'] });
-
-            expect(actual).toHaveLength(5);
-
-            expect(actual.filter((t) => t.isFootnote)).toHaveLength(2); // only last 2 are footnotes
-            expect(actual.at(-1)!.isFootnote && actual.at(-2)!.isFootnote).toBeTrue();
         });
     });
 });

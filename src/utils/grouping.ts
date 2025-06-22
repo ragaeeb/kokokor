@@ -1,4 +1,4 @@
-import type { IndexedObservation, Observation } from '@/types';
+import type { Observation } from '@/types';
 
 /**
  * Groups observations by their assigned index value.
@@ -8,15 +8,15 @@ import type { IndexedObservation, Observation } from '@/types';
  * @param marked - Array of observations with index properties
  * @returns An array of observation groups, where each group contains observations with the same index
  */
-export const groupObservationsByIndex = (marked: IndexedObservation[]) => {
-    const groups: Observation[][] = [];
+export const groupByIndex = <T extends { index: number }>(items: T[]) => {
+    const groups: Omit<T, 'index'>[][] = [];
 
-    for (const { index, ...m } of marked) {
+    for (const { index, ...item } of items) {
         if (!groups[index]) {
             groups[index] = [];
         }
 
-        groups[index].push(m);
+        groups[index].push(item as Omit<T, 'index'>);
     }
 
     return groups;
@@ -30,7 +30,7 @@ export const groupObservationsByIndex = (marked: IndexedObservation[]) => {
  * @param grouped - Array of observation groups to be sorted
  * @returns A new array with the same structure but with observations sorted by x-coordinate within each group
  */
-export const sortGroupsHorizontally = (grouped: Observation[][]) => {
+export const sortGroupsHorizontally = <T extends { bbox: { x: number } }>(grouped: T[][]) => {
     const groups = grouped.slice();
 
     for (let i = 0; i < groups.length; i++) {
@@ -51,8 +51,8 @@ export const sortGroupsHorizontally = (grouped: Observation[][]) => {
  * @param grouped - Array of observation groups to be merged
  * @returns An array of merged observations, where each item represents a complete line or paragraph
  */
-export const mergeGroupedObservations = (grouped: Observation[][]) => {
-    const result: Observation[] = [];
+export const mergeGroupedObservations = <T extends Observation>(grouped: T[][]) => {
+    const result: T[] = [];
 
     for (const group of grouped) {
         // Short circuit for single-observation groups

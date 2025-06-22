@@ -53,22 +53,6 @@ export const isObservationCentered = (bbox: BoundingBox, imageWidth: number, opt
 };
 
 /**
- * @param  lines           Array of “rows” (each row is an array of Observations on that horizontal band)
- * @param  expectedCols    How many segments per row to expect (2 for most Arabic poetry)
- * @param  minPoeticRatio  What fraction of rows must match expectedCols in order to call it “poetic”
- */
-export const isPoeticLayout = (lines: Observation[][], expectedCols = 2, minPoeticRatio = 0.6) => {
-    if (lines.length < 3) {
-        return false;
-    }
-
-    const poeticCount = lines.filter((row) => row.length === expectedCols).length;
-    const ratio = poeticCount / lines.length;
-
-    return ratio >= minPoeticRatio;
-};
-
-/**
  * Filters out horizontal lines that are contained within any of the provided rectangles.
  * @param rectangles - Array of rectangles to check containment against
  * @param horizontalLines - Array of horizontal lines to filter
@@ -86,6 +70,18 @@ export const filterHorizontalLinesOutsideRectangles = (
             return isBoundingBoxContained(line, rect, tolerance);
         });
     });
+};
+
+export const getLastHorizontalLineY = (
+    rectangles: BoundingBox[],
+    horizontalLines: BoundingBox[],
+    pixelTolerance = 5,
+) => {
+    if (rectangles.length > 0 && horizontalLines.length > 0) {
+        horizontalLines = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
+    }
+
+    return horizontalLines.at(-1)?.y;
 };
 
 /**
@@ -110,36 +106,6 @@ export const isBoundingBoxContained = (inner: BoundingBox, outer: BoundingBox, t
 };
 
 /**
- * Filters observations to return only those that are contained within any of the provided rectangles.
- * Uses a tolerance-based approach to account for slight pixel misalignments.
- *
- * @param observations - Array of observations to filter
- * @param rectangles - Array of bounding boxes representing rectangles to check containment against
- * @param tolerance - Pixel tolerance for boundary checking (default: 5)
- * @returns Array of observations that are contained within any of the rectangles
- *
- * @example
- * ```typescript
- * const observations = [
- *   { text: "Sample text", bbox: { x: 240, y: 40, width: 480, height: 40 } }
- * ];
- * const rectangles = [
- *   { x: 104, y: 11, width: 740, height: 97 }
- * ];
- * const filtered = filterObservationsInsideRectangles(observations, rectangles);
- * ```
- */
-export const filterObservationsInsideRectangles = (
-    observations: Observation[],
-    rectangles: BoundingBox[],
-    tolerance: number = 5,
-): Observation[] => {
-    return observations.filter((observation) =>
-        rectangles.some((rectangle) => isBoundingBoxContained(observation.bbox, rectangle, tolerance)),
-    );
-};
-
-/**
  * Check if two observations are close enough vertically to be considered a poetry pair
  */
 export const areObservationsVerticallyAligned = (
@@ -152,4 +118,80 @@ export const areObservationsVerticallyAligned = (
     const maxAllowedGap = avgHeight * maxVerticalGapRatio;
 
     return verticalGap <= maxAllowedGap;
+};
+
+/**
+ * Converts bounding box coordinates from array format to object format.
+ * Transforms [x1, y1, x2, y2] coordinates to {x, y, width, height} format.
+ *
+ * @param box - Array containing [x1, y1, x2, y2] coordinates
+ * @returns Bounding box object with x, y, width, and height properties
+ */
+export const mapMatrixToBoundingBox = (box: [number, number, number, number]) => {
+    const [x1, y1, x2, y2] = box;
+    return { height: y2 - y1, width: x2 - x1, x: x1, y: y1 };
+};
+
+/**
+ * Analyzes the typical line spacing in the document to determine
+ * what constitutes a normal gap vs. an intra-line gap.
+ *
+ * @param sortedObservations - Array of observations sorted by y-coordinate
+ * @returns Object containing typical gap size and minimum intra-line gap threshold
+ */
+export const analyzeLineSpacing = <T extends { bbox: { y: number } }>(
+    sortedItems: T[],
+): { minIntraLineGap: number; typicalGap: number } => {
+    const len = sortedItems.length;
+    if (len < 3) {
+        return { minIntraLineGap: 0, typicalGap: 0 };
+    }
+
+    // Calculate gaps in a single pass
+    const gaps: number[] = new Array(len - 1);
+    for (let i = 1; i < len; i++) {
+        gaps[i - 1] = sortedItems[i].bbox.y - sortedItems[i - 1].bbox.y;
+    }
+
+    // Sort gaps to find percentiles
+    gaps.sort((a, b) => a - b);
+
+    const medianIdx = Math.floor(gaps.length * 0.5);
+    const p75Idx = Math.floor(gaps.length * 0.75);
+
+    const medianGap = gaps[medianIdx];
+    const typicalGap = gaps[p75Idx];
+    const minIntraLineGap = Math.min(medianGap * 0.6, typicalGap * 0.4);
+
+    return { minIntraLineGap, typicalGap };
+};
+
+/**
+ * Computes an adaptive line height factor based on item heights and spacing patterns.
+ *
+ * @param items - Array of heights from bbox properties
+ * @param typicalGap - Typical vertical gap between lines in the document
+ * @returns Adaptive line height factor (0.15-0.4)
+ */
+export const computeAdaptiveLineHeightFactor = (heights: number[], typicalGap: number): number => {
+    if (heights.length === 0) {
+        return 0.3;
+    }
+
+    // Calculate average height in a single pass
+    let totalHeight = 0;
+
+    for (const height of heights) {
+        totalHeight += height;
+    }
+
+    const avgHeight = totalHeight / heights.length;
+
+    // Determine factor based on gap-to-height ratio
+    const gapToHeightRatio = typicalGap / avgHeight;
+
+    if (gapToHeightRatio < 0.8) return 0.15; // Small gaps - likely intra-line groupings
+    if (gapToHeightRatio < 1.2) return 0.25; // Medium gaps
+
+    return 0.4; // Large gaps - mostly separate lines
 };

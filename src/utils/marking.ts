@@ -1,77 +1,21 @@
-import type { IndexedObservation, Observation, Size } from '@/types';
+import type { BoundingBox, Size } from '@/types';
 
 import { PTS_TO_INCHES } from './constants';
+import { analyzeLineSpacing, computeAdaptiveLineHeightFactor } from './layout';
 
 /**
- * Analyzes the typical line spacing in the document to determine
- * what constitutes a normal gap vs. an intra-line gap.
+ * Determines if two consecutive items should be placed on separate lines.
  *
- * @param sortedObservations - Array of observations sorted by y-coordinate
- * @returns Object containing typical gap size and minimum intra-line gap threshold
- */
-const analyzeLineSpacing = (sortedObservations: Observation[]): { minIntraLineGap: number; typicalGap: number } => {
-    const len = sortedObservations.length;
-    if (len < 3) {
-        return { minIntraLineGap: 0, typicalGap: 0 };
-    }
-
-    // Calculate gaps in a single pass
-    const gaps: number[] = new Array(len - 1);
-    for (let i = 1; i < len; i++) {
-        gaps[i - 1] = sortedObservations[i].bbox.y - sortedObservations[i - 1].bbox.y;
-    }
-
-    // Sort gaps to find percentiles
-    gaps.sort((a, b) => a - b);
-
-    const medianIdx = Math.floor(gaps.length * 0.5);
-    const p75Idx = Math.floor(gaps.length * 0.75);
-
-    const medianGap = gaps[medianIdx];
-    const typicalGap = gaps[p75Idx];
-    const minIntraLineGap = Math.min(medianGap * 0.6, typicalGap * 0.4);
-
-    return { minIntraLineGap, typicalGap };
-};
-
-/**
- * Computes an adaptive line height factor based on observation heights and spacing patterns.
- *
- * @param observations - Array of OCR observations
- * @param typicalGap - Typical vertical gap between lines in the document
- * @returns Adaptive line height factor (0.15-0.4)
- */
-const computeAdaptiveLineHeightFactor = (observations: Observation[], typicalGap: number): number => {
-    if (observations.length === 0) return 0.3;
-
-    // Calculate average height in a single pass
-    let totalHeight = 0;
-    for (let i = 0; i < observations.length; i++) {
-        totalHeight += observations[i].bbox.height;
-    }
-    const avgHeight = totalHeight / observations.length;
-
-    // Determine factor based on gap-to-height ratio
-    const gapToHeightRatio = typicalGap / avgHeight;
-
-    if (gapToHeightRatio < 0.8) return 0.15; // Small gaps - likely intra-line groupings
-    if (gapToHeightRatio < 1.2) return 0.25; // Medium gaps
-    return 0.4; // Large gaps - mostly separate lines
-};
-
-/**
- * Determines if two consecutive observations should be placed on separate lines.
- *
- * @param prev - Previous observation
- * @param current - Current observation
+ * @param prev - Previous item
+ * @param current - Current item
  * @param effectiveFactor - Line height factor to use
  * @param effectiveYTolerance - DPI-adjusted vertical tolerance
  * @param spacingAnalysis - Document spacing analysis results
- * @returns True if observations should be on separate lines
+ * @returns True if items should be on separate lines
  */
-const shouldSeparateLines = (
-    prev: Observation,
-    current: Observation,
+const shouldSeparateLines = <T extends { bbox: BoundingBox }>(
+    prev: T,
+    current: T,
     effectiveFactor: number,
     effectiveYTolerance: number,
     spacingAnalysis: { minIntraLineGap: number; typicalGap: number },
@@ -95,36 +39,36 @@ const shouldSeparateLines = (
 };
 
 /**
- * Processes the sorted observations and assigns line indices.
+ * Processes the sorted items and assigns line indices.
  *
- * @param sortedObservations - Array of observations sorted by y-coordinate
+ * @param sortedItems - Array of items sorted by y-coordinate
  * @param effectiveFactor - Line height factor to use
  * @param effectiveYTolerance - DPI-adjusted vertical tolerance
  * @param spacingAnalysis - Document spacing analysis results
- * @returns Array of observations with line index assignments
+ * @returns Array of items with line index assignments
  */
-const assignLineIndices = (
-    sortedObservations: Observation[],
+const assignLineIndices = <T extends { bbox: BoundingBox }>(
+    sortedItems: T[],
     effectiveFactor: number,
     effectiveYTolerance: number,
     spacingAnalysis: { minIntraLineGap: number; typicalGap: number },
-): IndexedObservation[] => {
-    const len = sortedObservations.length;
-    const marked: IndexedObservation[] = new Array(len);
+): (T & { index: number })[] => {
+    const len = sortedItems.length;
+    const marked: (T & { index: number })[] = new Array(len);
 
     let currentLine = 0;
-    let prev = sortedObservations[0];
+    let prev = sortedItems[0];
     marked[0] = { ...prev, index: currentLine };
 
     for (let i = 1; i < len; i++) {
-        const obs = sortedObservations[i];
+        const item = sortedItems[i];
 
-        if (shouldSeparateLines(prev, obs, effectiveFactor, effectiveYTolerance, spacingAnalysis)) {
+        if (shouldSeparateLines(prev, item, effectiveFactor, effectiveYTolerance, spacingAnalysis)) {
             currentLine += 1;
         }
 
-        marked[i] = { ...obs, index: currentLine };
-        prev = obs;
+        marked[i] = { ...item, index: currentLine };
+        prev = item;
     }
 
     return marked;
@@ -151,27 +95,24 @@ const assignLineIndices = (
  * @param lineHeightFactor - Optional fixed line height factor. If not provided, will be computed adaptively
  * @returns Array of observations with index properties indicating their line assignments, sorted by line then y-coordinate
  */
-export const indexObservationsAsLines = (
-    observations: Observation[],
+export const indexItemsAsLines = <T extends { bbox: BoundingBox }>(
+    items: T[],
     dpi: number,
     pixelTolerance: number,
     lineHeightFactor?: number,
-): IndexedObservation[] => {
-    // Sort observations by y-coordinate
-    const byY = observations.toSorted((a, b) => a.bbox.y - b.bbox.y);
+): (T & { index: number })[] => {
+    // Sort items by y-coordinate
+    const byY = items.toSorted((a, b) => a.bbox.y - b.bbox.y);
     const effectiveYTolerance = pixelTolerance * (dpi / PTS_TO_INCHES);
 
     // Determine line height factor and spacing analysis
-    let effectiveFactor: number;
-    let spacingAnalysis: { minIntraLineGap: number; typicalGap: number };
-
-    if (lineHeightFactor) {
-        effectiveFactor = lineHeightFactor;
-        spacingAnalysis = { minIntraLineGap: 0, typicalGap: 0 }; // Skip analysis if factor provided
-    } else {
-        spacingAnalysis = analyzeLineSpacing(byY);
-        effectiveFactor = computeAdaptiveLineHeightFactor(observations, spacingAnalysis.typicalGap);
-    }
+    const spacingAnalysis = lineHeightFactor ? { minIntraLineGap: 0, typicalGap: 0 } : analyzeLineSpacing(byY); // Skip analysis if factor provided
+    const effectiveFactor =
+        lineHeightFactor ||
+        computeAdaptiveLineHeightFactor(
+            items.map((i) => i.bbox.height),
+            spacingAnalysis.typicalGap,
+        );
 
     // Assign line indices
     const marked = assignLineIndices(byY, effectiveFactor, effectiveYTolerance, spacingAnalysis);
@@ -206,32 +147,32 @@ export const calculateDPI = (imageSize: Size, pdfSize: Size) => {
  * @param widthTolerance - Fraction of maximum width below which a line is considered "short" (0-1)
  * @returns Array of observations with index properties indicating their paragraph assignments
  */
-export const indexObservationsAsParagraphs = (
-    observations: Observation[],
+export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox }>(
+    items: T[],
     verticalJumpFactor: number,
     widthTolerance: number,
-): IndexedObservation[] => {
-    if (observations.length === 0) {
+): (T & { index: number })[] => {
+    if (items.length === 0) {
         return [];
     }
     // 1) compute width threshold
-    const maxWidth = Math.max(...observations.map((o) => o.bbox.width));
+    const maxWidth = Math.max(...items.map((item) => item.bbox.width));
     const thresholdWidth = maxWidth * widthTolerance;
 
-    const out: IndexedObservation[] = [];
+    const out: (T & { index: number })[] = [];
     let index = 0;
 
-    for (let i = 0; i < observations.length; i++) {
-        const o = observations[i];
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
 
         // a) only apply vertical‐jump if *both* of the two preceding lines
-        //    were “full” (not short).  This prevents double‐counting at the
+        //    were "full" (not short).  This prevents double‐counting at the
         //    body→footer cut.
         if (i > 1) {
-            const prev = observations[i - 1];
-            const prevPrev = observations[i - 2];
+            const prev = items[i - 1];
+            const prevPrev = items[i - 2];
             if (prev.bbox.width >= thresholdWidth && prevPrev.bbox.width >= thresholdWidth) {
-                const gap = o.bbox.y - prev.bbox.y;
+                const gap = item.bbox.y - prev.bbox.y;
                 const prevGap = prev.bbox.y - prevPrev.bbox.y;
                 // Ensure prevGap is not zero to avoid division by zero or infinite jumpFactor sensitivity
                 if (prevGap > 0 && gap > prevGap * verticalJumpFactor) {
@@ -239,17 +180,17 @@ export const indexObservationsAsParagraphs = (
                 } else if (prevGap === 0 && gap > 0) {
                     // If previous gap was zero (overlapping lines), consider it a paragraph break
                     // if the current gap is significant compared to line height
-                    if (gap > o.bbox.height * 0.5 * verticalJumpFactor) {
+                    if (gap > item.bbox.height * 0.5 * verticalJumpFactor) {
                         index++;
                     }
                 }
             }
         } else if (i === 1) {
-            const prev = observations[i - 1]; // This is observations[0]
+            const prev = items[i - 1]; // This is items[0]
             // Only consider a vertical jump if the FIRST line was full-width.
             // If the first line was short, its shortness already incremented 'index' for the current line.
             if (prev.bbox.width >= thresholdWidth) {
-                const gap = o.bbox.y - prev.bbox.y;
+                const gap = item.bbox.y - prev.bbox.y;
                 if (gap > prev.bbox.height * verticalJumpFactor) {
                     index++;
                 }
@@ -257,10 +198,10 @@ export const indexObservationsAsParagraphs = (
         }
 
         // tag
-        out.push({ ...o, index });
+        out.push({ ...item, index });
 
         // b) short‐width break for the *next* line
-        if (o.bbox.width < thresholdWidth) {
+        if (item.bbox.width < thresholdWidth) {
             index++;
         }
     }
@@ -268,30 +209,3 @@ export const indexObservationsAsParagraphs = (
     // stable sort by index then y
     return out.sort((a, b) => (a.index !== b.index ? a.index - b.index : a.bbox.y - b.bbox.y));
 };
-
-/**
- * Ensures that the set of `index` values on your observations
- * forms a contiguous 0…N sequence with no gaps.
- * Throws an Error if it finds any missing index.
- */
-export function assertIndicesContinuous<T extends { index: number }>(marked: T[]): void {
-    // collect the unique indices, sorted
-    const unique = Array.from(new Set(marked.map((o) => o.index))).sort((a, b) => a - b);
-
-    if (unique.length === 0) return;
-
-    // must start at zero
-    if (unique[0] !== 0) {
-        throw new Error(`Paragraph indices must start at 0, but first index is ${unique[0]}`);
-    }
-
-    // check for gaps
-    for (let i = 0; i < unique.length; i++) {
-        if (unique[i] !== i) {
-            throw new Error(
-                `Paragraph index gap: expected index ${i} but got ${unique[i]}. ` +
-                    `Full index list: [${unique.join(', ')}]`,
-            );
-        }
-    }
-}

@@ -15,6 +15,8 @@ export const mapOcrResultToRTLObservations = (observations: Observation[], image
     return observations.map((o) => ({ ...o, bbox: { ...o.bbox, x: imageWidth - o.bbox.x - o.bbox.width } }));
 };
 
+export const filterNoisyObservations = (o: Observation) => o.text?.length > 1;
+
 /**
  * Normalizes the x-coordinates of observations to align them properly.
  *
@@ -27,7 +29,7 @@ export const mapOcrResultToRTLObservations = (observations: Observation[], image
  * @param standardDPI - The standard DPI to normalize against (typically 300)
  * @returns A new array of observations with normalized x-coordinates
  */
-export const normalizeObservationsX = (observations: Observation[], dpi: number, standardDPI: number) => {
+export const normalizeObservationsX = (observations: Observation[], dpi: number, standardDPI: number = 300) => {
     const thresholdPx = (standardDPI / dpi) * 5;
     const minX = Math.min(...observations.map((o) => o.bbox.x));
 

@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import {
-    filterHorizontalLinesOutsideRectangles,
-    filterObservationsInsideRectangles,
-    isObservationCentered,
-} from './layout';
+import { filterHorizontalLinesOutsideRectangles, isObservationCentered } from './layout';
 
 describe('layout', () => {
     describe('isObservationCentered', () => {
@@ -115,42 +111,6 @@ describe('layout', () => {
             );
 
             expect(actual).toBeEmpty();
-        });
-    });
-
-    describe('filterObservationsInsideRectangles', () => {
-        it('should only return the first observation since it is in the title rectangle', () => {
-            const observations = [
-                {
-                    bbox: {
-                        height: 40,
-                        width: 480,
-                        x: 240,
-                        y: 40,
-                    },
-                    text: 'A',
-                },
-                {
-                    bbox: {
-                        height: 42,
-                        width: 642,
-                        x: 190,
-                        y: 120,
-                    },
-                    text: 'B',
-                },
-            ];
-
-            const actual = filterObservationsInsideRectangles(observations, [
-                {
-                    height: 97,
-                    width: 740,
-                    x: 104,
-                    y: 11,
-                },
-            ]);
-
-            expect(actual).toEqual(observations.slice(0, 1));
         });
     });
 });
