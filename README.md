@@ -13,22 +13,20 @@
 ![GitHub stars](https://img.shields.io/github/stars/ragaeeb/kokokor?style=social)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ragaeeb/kokokor?utm_source=oss&utm_medium=github&utm_campaign=ragaeeb%2Fkokokor&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs. It helps format unstructured text with appropriate paragraph breaks, optimizes for readability, and includes advanced typo correction capabilities using multiple OCR sources.
+A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs. It helps format unstructured text with appropriate paragraph breaks, optimizes for readability, and includes advanced poetry detection and layout analysis capabilities.
 
 ## Features
 
-- Reconstructs coherent paragraphs from raw OCR text observations
-- Handles right-to-left (RTL) text formatting
-- Intelligently identifies paragraph breaks based on vertical spacing and line widths
-- Recognizes poetic layouts and preserves them appropriately
-- **Advanced typo detection and correction** using alignment algorithms between multiple OCR sources
-- **Surya OCR integration** for improved text accuracy and post-processing
-- Supports customizable parameters for different document types
-- Normalizes coordinates to ensure consistent results regardless of source document resolution
-- **Preserves special symbols** (like Arabic religious markers) during typo correction
-- **Handles footnotes** and embedded text elements intelligently
-- **Chapter headings** detection and inserting appropriate spacing around them.
-- **Alignment** detection for easily figuring out additional headings of sections.
+- **Intelligent text line grouping** based on vertical proximity and adaptive spacing analysis
+- **Advanced paragraph reconstruction** with vertical gap and line width analysis
+- **Right-to-left (RTL) text support** with coordinate flipping and normalization
+- **Poetry detection and preservation** using multiple heuristics (centering, word density, hemistichs)
+- **Layout structure recognition** including headings (rectangles), footnotes (below horizontal lines)
+- **Coordinate normalization** ensuring consistent results regardless of source document resolution
+- **Surya OCR integration** with format conversion utilities
+- **Noise filtering** to remove OCR artifacts and improve text quality
+- **Customizable parameters** for different document types and languages
+- **Comprehensive text block metadata** including centering, heading, footnote, and poetry flags
 
 ## Installation
 
@@ -48,61 +46,68 @@ bun add kokokor
 ### Basic Usage
 
 ```typescript
-import { rebuildParagraphs } from 'kokokor';
+import { formatTextBlocks, mapObservationsToTextLines, mapTextLinesToParagraphs } from 'kokokor';
 
 // Example OCR result
 const ocrResult = {
     dpi: { x: 300, y: 300, width: 2480, height: 3508 },
     observations: [
-        // Array of text observations with bbox coordinates
         { text: 'This is the first', bbox: { x: 100, y: 100, width: 200, height: 20 } },
         { text: 'line of text.', bbox: { x: 310, y: 100, width: 150, height: 20 } },
         { text: 'This is a new paragraph.', bbox: { x: 100, y: 150, width: 300, height: 20 } },
     ],
 };
 
-// Get reconstructed paragraphs as a string
-const reconstructedText = rebuildParagraphs(ocrResult);
+// Step 1: Convert observations to text lines
+const textLines = mapObservationsToTextLines(ocrResult.observations, ocrResult.dpi, {});
+
+// Step 2: Group text lines into paragraphs
+const paragraphs = mapTextLinesToParagraphs(textLines);
+
+// Step 3: Format as readable text
+const reconstructedText = formatTextBlocks(paragraphs);
 console.log(reconstructedText);
 // Output:
 // This is the first line of text.
 // This is a new paragraph.
 ```
 
-### Advanced Configuration with Typo Correction
+### Advanced Configuration
 
 ```typescript
-import { rebuildParagraphs } from 'kokokor';
+import { mapObservationsToTextLines, mapTextLinesToParagraphs } from 'kokokor';
 
 const options = {
-    fallbackDPI: 72, // Default DPI when not provided in OCR result
     pixelTolerance: 5, // Tolerance for vertical alignment in lines
-    standardDpiX: 300, // Target DPI for normalization
-    verticalJumpFactor: 2, // Factor for identifying paragraph breaks
-    widthTolerance: 0.85, // Threshold for identifying "short" lines
-    footerSymbol: '---', // Optional symbol for footers
+    lineHeightFactor: 0.3, // Fixed line height factor (optional, otherwise computed adaptively)
 
-    // Typo correction options
-    typoSymbols: ['ﷺ', '﷽', 'ﷻ'], // Arabic religious symbols to preserve
-    similarityThreshold: 0.7, // Threshold for token alignment
-    highSimilarityThreshold: 0.9, // Threshold for duplicate removal
+    // Centering detection options
+    centerToleranceRatio: 0.05, // Tolerance for center point alignment (5% of page width)
+    minMarginRatio: 0.2, // Minimum margin required for centering detection (20% of page width)
+
+    // Poetry detection options
+    poetryDetectionOptions: {
+        centerToleranceRatio: 0.05,
+        minMarginRatio: 0.1,
+        maxVerticalGapRatio: 2.0, // Max gap between poetry hemistichs
+        minWidthRatioForMerged: 0.6, // Minimum width for wide poetic lines
+        minWordCount: 2, // Minimum words for poetry consideration
+        pairWidthSimilarityRatio: 0.4, // Width similarity for poetry pairs
+        pairWordCountSimilarityRatio: 0.5, // Word count similarity for poetry pairs
+        wordDensityComparisonRatio: 0.95, // Density comparison for wide poetry lines
+    },
+
+    // Layout structure (optional)
+    horizontalLines: [], // Array of horizontal line bounding boxes for footnote detection
+    rectangles: [], // Array of rectangle bounding boxes for heading detection
+
+    // Debug logging (optional)
+    log: console.log,
 };
 
-// OCR result with alternate observations for typo correction
-const ocrResultWithAlternate = {
-    dpi: { x: 300, y: 300, width: 2480, height: 3508 },
-    observations: [
-        // Primary OCR observations
-        { text: 'Problematic text with typos', bbox: { x: 100, y: 100, width: 300, height: 20 } },
-    ],
-    alternateObservations: [
-        // Surya OCR observations for comparison
-        { text: 'Corrected text without typos', bbox: { x: 100, y: 100, width: 300, height: 20 } },
-    ],
-};
-
-// Process with typo correction
-const correctedText = rebuildParagraphs(ocrResultWithAlternate, options);
+// Process with advanced options
+const textLines = mapObservationsToTextLines(observations, dpi, options);
+const paragraphs = mapTextLinesToParagraphs(textLines, 2, 0.85); // verticalJumpFactor=2, widthTolerance=0.85
 ```
 
 ### Working with Surya OCR Results
@@ -110,7 +115,7 @@ const correctedText = rebuildParagraphs(ocrResultWithAlternate, options);
 `kokokor` can handle [surya](https://github.com/VikParuchuri/surya) library output.
 
 ```typescript
-import { mapSuryaPageResultToObservations } from 'kokokor';
+import { mapMatrixToBoundingBox } from 'kokokor';
 
 // Convert Surya OCR format to kokokor observations
 const suryaResult = {
@@ -118,56 +123,103 @@ const suryaResult = {
         {
             bbox: [100, 100, 400, 120], // [x1, y1, x2, y2] format
             text: 'Text from Surya OCR',
-            chars: [],
         },
     ],
 };
 
-const observations = mapSuryaPageResultToObservations(suryaResult);
-// Now you can use these observations in your OCR result
+// Convert Surya bounding boxes to kokokor format
+const observations = suryaResult.text_lines.map((line) => ({
+    text: line.text,
+    bbox: mapMatrixToBoundingBox(line.bbox as [number, number, number, number]),
+}));
+
+// Now you can use these observations with kokokor
+```
+
+### Working with Layout Elements
+
+```typescript
+import { filterHorizontalLinesOutsideRectangles, calculateDPI } from 'kokokor';
+
+// Calculate DPI from image and PDF dimensions
+const dpi = calculateDPI(
+    { width: 2480, height: 3508 }, // Image size
+    { width: 595, height: 842 }, // PDF size in points
+);
+
+// Filter horizontal lines that aren't inside rectangles
+const relevantLines = filterHorizontalLinesOutsideRectangles(
+    rectangles, // Array of rectangle bounding boxes
+    horizontalLines, // Array of horizontal line bounding boxes
+    5, // Pixel tolerance
+);
 ```
 
 ## API Reference
 
-### Main Functions
+### Main Processing Functions
 
-#### `rebuildParagraphs(ocr: OcrResult, options?: RebuildOptions): string`
+#### `mapObservationsToTextLines(observations: Observation[], dpi: BoundingBox, options: MapObservationsToTextLinesOptions): TextBlock[]`
 
-Reconstructs complete paragraph text from OCR results with optional typo correction.
+Converts OCR observations into structured text lines with metadata.
 
-- **Parameters:**
-    - `ocr`: The OCR result containing text observations and document metadata
-    - `options`: Optional configuration options (including typo correction settings)
-- **Returns:** A string containing the reconstructed text with paragraphs separated by newlines
-
-#### `buildTextBlocksFromOCR(ocr: OcrResult, options?: BuildTextBoxOptions): TextBlock[]`
-
-Processes OCR result data to identify and reconstruct paragraphs from individual text observations.
+Groups observations into lines based on vertical proximity, applies centering detection, identifies headings (text within rectangles), footnotes (text below horizontal lines), and poetic content.
 
 - **Parameters:**
-    - `ocr`: The OCR result containing text observations and document metadata
-    - `options`: Optional configuration options (including typo correction settings)
-- **Returns:** An array of merged observations, where each item represents a complete paragraph
+    - `observations`: Array of OCR text observations
+    - `dpi`: Document DPI information including width and height
+    - `options`: Configuration options for text line processing
+- **Returns:** Array of text blocks with metadata (centering, headings, footnotes, poetry)
 
-#### `mapSuryaPageResultToObservations(surya: SuryaPageOcrResult): Observation[]`
+#### `mapTextLinesToParagraphs(textLines: TextBlock[], verticalJumpFactor?: number, widthTolerance?: number): TextBlock[]`
 
-Converts Surya OCR page results to standardized Observation format.
+Groups text lines into coherent paragraphs, handling both prose and poetry.
+
+Prose lines are grouped into paragraphs based on vertical spacing and line width patterns. Poetic lines are preserved individually to maintain their formatting.
 
 - **Parameters:**
-    - `surya`: Surya OCR page result containing text lines with bounding boxes
-- **Returns:** Array of observations in standardized format
+    - `textLines`: Array of text lines to group into paragraphs
+    - `verticalJumpFactor`: Factor for detecting paragraph breaks based on vertical spacing (default: 2)
+    - `widthTolerance`: Threshold for identifying "short" lines that indicate paragraph breaks (default: 0.85)
+- **Returns:** Array of text blocks representing complete paragraphs
+
+#### `formatTextBlocks(textBlocks: TextBlock[], footerSymbol?: string): string`
+
+Formats an array of text blocks into a readable string with proper paragraph breaks.
+
+- **Parameters:**
+    - `textBlocks`: Array of text blocks to format
+    - `footerSymbol`: Optional symbol to insert before the first footnote
+- **Returns:** Formatted text string with proper line breaks and spacing
+
+### Utility Functions
+
+#### `flipAndAlignObservations(observations: Observation[], imageWidth: number, dpiX: number, options?: object): Observation[]`
+
+Preprocesses observations by filtering noise, flipping coordinates for RTL text, and normalizing x-coordinates for proper alignment.
+
+#### `mapMatrixToBoundingBox(box: [number, number, number, number]): BoundingBox`
+
+Converts bounding box coordinates from array format to object format.
+
+#### `calculateDPI(imageSize: Size, pdfSize: Size): {x: number, y: number}`
+
+Calculates the DPI based on image size and original PDF size.
+
+#### `filterHorizontalLinesOutsideRectangles(rectangles: BoundingBox[], horizontalLines: BoundingBox[], tolerance?: number): BoundingBox[]`
+
+Filters out horizontal lines that are contained within any of the provided rectangles.
 
 ### Types
 
-#### `OcrResult`
+#### `TextBlock`
 
 ```typescript
-type OcrResult = {
-    readonly dpi: BoundingBox;
-    readonly observations: Observation[];
-    readonly alternateObservations?: Observation[]; // For typo correction
-    readonly horizontalLines?: BoundingBox[];
-    readonly rectangles?: BoundingBox[];
+type TextBlock = Observation & {
+    isCentered?: boolean; // If the text is centered on the page
+    isFootnote?: boolean; // If this text is a footnote
+    isHeading?: boolean; // If the text represents a heading
+    isPoetic?: boolean; // Is a line of poem (not merged into paragraphs)
 };
 ```
 
@@ -175,8 +227,8 @@ type OcrResult = {
 
 ```typescript
 type Observation = {
-    readonly bbox: BoundingBox;
-    readonly text: string;
+    bbox: BoundingBox; // Position and dimensions
+    text: string; // Text content
 };
 ```
 
@@ -184,63 +236,68 @@ type Observation = {
 
 ```typescript
 type BoundingBox = {
-    readonly width: number;
-    readonly height: number;
-    x: number;
-    y: number;
+    x: number; // X-coordinate
+    y: number; // Y-coordinate
+    width: number; // Width
+    height: number; // Height
 };
 ```
 
-#### `RebuildOptions`
+#### `MapObservationsToTextLinesOptions`
 
 ```typescript
-type RebuildOptions = {
-    readonly fallbackDPI?: number; // Default: 72
-    readonly pixelTolerance?: number; // Default: 5
-    readonly standardDpiX?: number; // Default: 300
-    readonly verticalJumpFactor?: number; // Default: 2
-    readonly widthTolerance?: number; // Default: 0.85
-    readonly footerSymbol?: string; // Default: undefined
-
-    // Typo correction options
-    readonly typoSymbols?: string[]; // Special symbols to preserve
-    readonly similarityThreshold?: number; // Default: 0.6
-    readonly highSimilarityThreshold?: number; // Default: 0.8
+type MapObservationsToTextLinesOptions = {
+    pixelTolerance?: number; // Default: 5
+    lineHeightFactor?: number; // Optional fixed line height factor
+    centerToleranceRatio?: number; // Default: 0.05
+    minMarginRatio?: number; // Default: 0.2
+    poetryDetectionOptions?: PoetryDetectionOptions;
+    horizontalLines?: BoundingBox[]; // For footnote detection
+    rectangles?: BoundingBox[]; // For heading detection
+    log?: (message: string, ...args: any[]) => void; // Debug logging
 };
 ```
 
-#### `SuryaPageOcrResult`
+#### `PoetryDetectionOptions`
 
 ```typescript
-type SuryaPageOcrResult = {
-    readonly text_lines: {
-        readonly bbox: number[]; // [x1, y1, x2, y2] format
-        readonly text: string;
-        readonly chars: SuryaTextLine[];
-    }[];
+type PoetryDetectionOptions = {
+    centerToleranceRatio: number; // Default: 0.05
+    minMarginRatio: number; // Default: 0.1
+    maxVerticalGapRatio: number; // Default: 2.0
+    minWidthRatioForMerged: number; // Default: 0.6
+    minWordCount: number; // Default: 2
+    pairWidthSimilarityRatio: number; // Default: 0.4
+    pairWordCountSimilarityRatio: number; // Default: 0.5
+    wordDensityComparisonRatio: number; // Default: 0.95
 };
 ```
 
-#### `FixTypoOptions`
+## Algorithm Overview
 
-```typescript
-type FixTypoOptions = {
-    readonly typoSymbols: string[]; // Symbols to preserve during correction
-    readonly similarityThreshold: number; // Token alignment threshold (0.0-1.0)
-    readonly highSimilarityThreshold: number; // Duplicate detection threshold (0.0-1.0)
-};
-```
+### Text Line Grouping
 
-## Typo Correction Algorithm
+1. **Preprocessing**: Filters noise, flips coordinates for RTL text, normalizes x-coordinates
+2. **Adaptive Line Detection**: Uses document spacing analysis to compute optimal line height factors
+3. **Vertical Grouping**: Groups observations into lines based on vertical proximity
+4. **Horizontal Sorting**: Sorts observations within each line by x-coordinate for proper reading order
+5. **Metadata Assignment**: Identifies centered text, headings, footnotes, and poetry
 
-The typo correction feature uses advanced text alignment algorithms to compare OCR results from different sources:
+### Poetry Detection
 
-1. **Token Alignment**: Uses the Needleman-Wunsch sequence alignment algorithm to align tokens between original and reference OCR results
-2. **Symbol Preservation**: Automatically preserves important symbols (like Arabic religious markers) during correction
-3. **Footnote Handling**: Intelligently handles embedded footnotes and standalone footnote references
-4. **Similarity-Based Selection**: Chooses the best token based on configurable similarity thresholds
-5. **Duplicate Removal**: Post-processes results to remove highly similar duplicate tokens
-6. **Normalization**: Applies text normalization while preserving original formatting and diacritics
+The library uses multiple heuristics to identify poetic content:
+
+1. **Wide Poetic Lines**: Centered text with low word density compared to prose
+2. **Poetry Pairs (Hemistichs)**: Two lines with similar width and word count that are centered as a unit
+3. **Centering Analysis**: Uses configurable tolerances for center point alignment and margin requirements
+4. **Word Density Comparison**: Compares line density against document prose baseline
+
+### Paragraph Formation
+
+1. **Poetry Preservation**: Poetic lines are kept separate and not merged into paragraphs
+2. **Vertical Gap Analysis**: Uses vertical spacing patterns to identify paragraph breaks
+3. **Line Width Analysis**: Short lines often indicate paragraph endings
+4. **Separate Processing**: Body content and footnotes are processed independently
 
 ## Testing
 

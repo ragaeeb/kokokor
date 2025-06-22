@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test';
 
-import { groupObservationsByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './grouping';
+import { groupByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './grouping';
 
 describe('grouping', () => {
-    describe('groupObservationsByIndex', () => {
+    describe('groupByIndex', () => {
         it('should group the observations by their closest y-coordinate and sort the observations by their respective x-coordinates', () => {
-            const actual = groupObservationsByIndex([
+            const actual = groupByIndex([
                 {
                     bbox: {
                         height: 93,
@@ -196,7 +196,7 @@ describe('grouping', () => {
                 },
             ];
 
-            const actual = groupObservationsByIndex(marked);
+            const actual = groupByIndex(marked);
 
             expect(actual).toEqual([
                 [
@@ -231,7 +231,7 @@ describe('grouping', () => {
                 { bbox: { height: 10, width: 100, x: 10, y: 50 }, index: 2, text: 'Line 3' },
             ];
 
-            const result = groupObservationsByIndex(observations);
+            const result = groupByIndex(observations);
 
             expect(Object.keys(result).length).toBe(3); // Three groups
             expect(result[0].length).toBe(2); // Two items in group 0
@@ -245,7 +245,7 @@ describe('grouping', () => {
         });
 
         it('should handle empty input array', () => {
-            const actual = groupObservationsByIndex([]);
+            const actual = groupByIndex([]);
             expect(actual).toEqual([]);
         });
 
@@ -255,7 +255,7 @@ describe('grouping', () => {
                 { bbox: { height: 10, width: 100, x: 20, y: 20 }, index: 10, text: 'Text 2' },
             ];
 
-            const actual = groupObservationsByIndex(marked);
+            const actual = groupByIndex(marked);
 
             // Results should have empty arrays for indices 0-4 and 6-9
             expect(actual[5]).toEqual([
@@ -327,7 +327,7 @@ describe('grouping', () => {
                     { bbox: { height: 15, width: 100, x: 200, y: 5 }, text: 'Second part' },
                 ],
                 [
-                    { bbox: { height: 10, width: 100, x: 100, y: 50 }, text: 'Third part' },
+                    { bbox: { height: 10, width: 100, x: 100, y: 50 }, isFootnote: true, text: 'Third part' },
                     { bbox: { height: 10, width: 100, x: 200, y: 50 }, text: 'Fourth part' },
                 ],
             ];
@@ -341,6 +341,7 @@ describe('grouping', () => {
                 },
                 {
                     bbox: { height: 10, width: 200, x: 100, y: 50 },
+                    isFootnote: true,
                     text: 'Third part Fourth part',
                 },
             ]);

@@ -1,36 +1,65 @@
-import type { IndexedObservation, Observation } from '@/types';
+import type { Observation } from '@/types';
 
 /**
- * Groups observations by their assigned index value.
- * This function takes an array of indexed observations and groups them into subarrays
- * based on their index property, which typically represents lines or paragraphs.
+ * Groups items by their assigned index value into separate arrays.
  *
- * @param marked - Array of observations with index properties
- * @returns An array of observation groups, where each group contains observations with the same index
+ * This function takes an array of indexed items and organizes them into subarrays
+ * based on their index property, which typically represents lines, paragraphs, or
+ * other logical groupings. The index property is removed from the resulting items.
+ *
+ * @template T - Type extending an object with a numeric index property
+ * @param items - Array of items with index properties to be grouped
+ * @returns An array of item groups, where each group contains items with the same index
+ *
+ * @example
+ * ```typescript
+ * const items = [
+ *   { text: "Hello", index: 0 },
+ *   { text: "World", index: 0 },
+ *   { text: "Goodbye", index: 1 }
+ * ];
+ * const groups = groupByIndex(items);
+ * // Result: [
+ * //   [{ text: "Hello" }, { text: "World" }],
+ * //   [{ text: "Goodbye" }]
+ * // ]
+ * ```
  */
-export const groupObservationsByIndex = (marked: IndexedObservation[]) => {
-    const groups: Observation[][] = [];
+export const groupByIndex = <T extends { index: number }>(items: T[]) => {
+    const groups: Omit<T, 'index'>[][] = [];
 
-    for (const m of marked) {
-        if (!groups[m.index]) {
-            groups[m.index] = [];
+    for (const { index, ...item } of items) {
+        if (!groups[index]) {
+            groups[index] = [];
         }
 
-        groups[m.index].push({ bbox: m.bbox, text: m.text, ...(m.confidence && { confidence: m.confidence }) });
+        groups[index].push(item as Omit<T, 'index'>);
     }
 
     return groups;
 };
 
 /**
- * Sorts observations within each group horizontally by their x-coordinate.
- * This ensures proper reading order (left-to-right) for observations within the same line.
- * The function creates a copy of the input array to avoid modifying the original.
+ * Sorts items within each group horizontally by their x-coordinate.
  *
- * @param grouped - Array of observation groups to be sorted
- * @returns A new array with the same structure but with observations sorted by x-coordinate within each group
+ * This ensures proper reading order (left-to-right for LTR languages) for items
+ * within the same line or group. The function creates a copy of the input array
+ * to avoid modifying the original data structure.
+ *
+ * @template T - Type extending an object with a bbox containing x-coordinate
+ * @param grouped - Array of item groups to be sorted horizontally
+ * @returns A new array with the same structure but with items sorted by x-coordinate within each group
+ *
+ * @example
+ * ```typescript
+ * const groups = [
+ *   [{ bbox: { x: 100 }, text: "World" }, { bbox: { x: 50 }, text: "Hello" }]
+ * ];
+ * const sorted = sortGroupsHorizontally(groups);
+ * // Result: [[{ bbox: { x: 50 }, text: "Hello" }, { bbox: { x: 100 }, text: "World" }]]
+ * ```
  */
-export const sortGroupsHorizontally = (grouped: Observation[][]) => {
+export const sortGroupsHorizontally = <T extends { bbox: { x: number } }>(grouped: T[][]) => {
     const groups = grouped.slice();
 
     for (let i = 0; i < groups.length; i++) {
@@ -42,16 +71,37 @@ export const sortGroupsHorizontally = (grouped: Observation[][]) => {
 };
 
 /**
- * Merges multiple observations within each group into a single observation.
- * For each group, this function:
- * 1. Calculates the combined bounding box that encompasses all observations in the group
- * 2. Concatenates the text of all observations with spaces between them
+ * Merges multiple observations within each group into a single combined observation.
  *
+ * For each group, this function performs the following operations:
+ * 1. Calculates a combined bounding box that encompasses all observations in the group
+ * 2. Concatenates the text content of all observations with spaces between them
+ * 3. Preserves all additional properties from the first observation in the group
+ *
+ * This is typically used to combine individual word-level OCR results into complete
+ * lines or to merge line segments into full paragraphs.
+ *
+ * @template T - Type extending Observation (must have bbox and text properties)
  * @param grouped - Array of observation groups to be merged
- * @returns An array of merged observations, where each item represents a complete line or paragraph
+ * @returns An array of merged observations, where each represents a complete line or paragraph
+ *
+ * @example
+ * ```typescript
+ * const groups = [
+ *   [
+ *     { bbox: { x: 0, y: 0, width: 50, height: 20 }, text: "Hello" },
+ *     { bbox: { x: 60, y: 0, width: 50, height: 20 }, text: "world" }
+ *   ]
+ * ];
+ * const merged = mergeGroupedObservations(groups);
+ * // Result: [{
+ * //   bbox: { x: 0, y: 0, width: 110, height: 20 },
+ * //   text: "Hello world"
+ * // }]
+ * ```
  */
-export const mergeGroupedObservations = (grouped: Observation[][]) => {
-    const result: Observation[] = [];
+export const mergeGroupedObservations = <T extends Observation>(grouped: T[][]) => {
+    const result: T[] = [];
 
     for (const group of grouped) {
         // Short circuit for single-observation groups
@@ -83,17 +133,15 @@ export const mergeGroupedObservations = (grouped: Observation[][]) => {
             combinedText += ' ' + text;
         }
 
-        const correctedObservation = group.find((o) => o.confidence);
-
-        // Create the merged observation
+        // Create the merged observation, preserving all properties from the first observation
         result.push({
+            ...group[0],
             bbox: {
                 height: maxY - minY,
                 width: maxX - minX,
                 x: minX,
                 y: minY,
             },
-            ...(correctedObservation && { confidence: correctedObservation.confidence }),
             text: combinedText,
         });
     }

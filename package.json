@@ -1,26 +1,33 @@
 {
     "name": "kokokor",
-    "version": "1.6.0",
+    "version": "2.0.0",
     "author": "Ragaeeb Haq",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ragaeeb/kokokor.git"
+    },
     "main": "dist/index.js",
     "devDependencies": {
-        "@eslint/js": "^9.28.0",
-        "@types/bun": "^1.2.15",
-        "@types/node": "^22.15.30",
-        "@typescript-eslint/eslint-plugin": "^8.33.1",
-        "@typescript-eslint/parser": "^8.33.1",
-        "eslint": "^9.28.0",
+        "@eslint/js": "^9.29.0",
+        "@types/bun": "^1.2.17",
+        "@types/node": "^24.0.3",
+        "baburchi": "^1.0.0",
+        "eslint": "^9.29.0",
         "eslint-config-prettier": "^10.1.5",
-        "eslint-plugin-perfectionist": "^4.14.0",
-        "eslint-plugin-prettier": "^5.4.1",
+        "eslint-plugin-perfectionist": "^4.15.0",
+        "eslint-plugin-prettier": "^5.5.0",
         "globals": "^16.2.0",
         "prettier": "^3.5.3",
         "semantic-release": "^24.2.5",
-        "tsup": "^8.5.0"
+        "tsup": "^8.5.0",
+        "typescript-eslint": "^8.34.1"
+    },
+    "bugs": {
+        "url": "https://github.com/ragaeeb/kokokor/issues"
     },
     "description": "A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs.",
     "engines": {
-        "bun": ">=1.2.15",
+        "bun": ">=1.2.16",
         "node": ">=22.0.0"
     },
     "files": [
@@ -30,6 +37,7 @@
         "LICENSE.md",
         "README.md"
     ],
+    "homepage": "https://github.com/ragaeeb/kokokor",
     "keywords": [
         "nodejs",
         "ocr",
@@ -41,17 +49,10 @@
     "license": "MIT",
     "scripts": {
         "build": "tsup",
+        "snap": "WRITE_SNAPSHOTS=true bun test",
         "test": "bun test --coverage --coverage-reporter=lcov"
     },
     "source": "src/index.ts",
     "type": "module",
-    "types": "dist/index.d.ts",
-    "repository": {
-        "type": "git",
-        "url": "https://github.com/ragaeeb/kokokor.git"
-    },
-    "homepage": "https://github.com/ragaeeb/kokokor",
-    "bugs": {
-        "url": "https://github.com/ragaeeb/kokokor/issues"
-    }
+    "types": "dist/index.d.ts"
 }
