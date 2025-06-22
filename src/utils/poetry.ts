@@ -160,7 +160,7 @@ export const isWidePoeticLine = (
 
             // For very wide lines (>75%), use the lenient default ratio.
             // For other wide lines (60-75%), use a much stricter ratio to avoid prose.
-            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio : 0.65;
+            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio : 0.6;
 
             if (densityRatio < requiredDensityRatio) {
                 return true;
