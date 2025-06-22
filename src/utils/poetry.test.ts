@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
 import { DEFAULT_POETRY_OPTIONS } from './constants';
-import { simplifyObservation } from './normalization';
-import { calculateAverageProseDensity, isPoeticGroup, isWidePoeticLine } from './poetry';
+import { calculateAverageProseDensity, isPoeticGroup, isPoetryPair, isWidePoeticLine } from './poetry';
 
 describe('poetry', () => {
     const createObservation = (text: string, x: number, y: number, width: number, height: number = 20) => ({
@@ -150,6 +149,60 @@ describe('poetry', () => {
         });
     });
 
+    describe('isPoetryPair', () => {
+        it('should be true pairs that are not completely centered but have a large gap in between while having a small word count for poetry', () => {
+            const actual = isPoetryPair(
+                {
+                    bbox: {
+                        height: 158,
+                        width: 910,
+                        x: 808,
+                        y: 576,
+                    },
+                    text: 'ويحيط سركما الوجود',
+                },
+                {
+                    bbox: {
+                        height: 187,
+                        width: 1040,
+                        x: 2396,
+                        y: 576,
+                    },
+                    text: 'فليس شيء يخفى عنكما',
+                },
+                4961,
+            );
+
+            expect(actual).toBeTrue();
+        });
+
+        it('should detect the pair even though it is not centered due to the large gap', () => {
+            const actual = isPoetryPair(
+                {
+                    bbox: {
+                        height: 176,
+                        width: 1096,
+                        x: 826,
+                        y: 1563,
+                    },
+                    text: 'صلى عليه اللّٰه ما بدر زها',
+                },
+                {
+                    bbox: {
+                        height: 210,
+                        width: 1332,
+                        x: 2293,
+                        y: 1559,
+                    },
+                    text: 'والآل والصحب النجوم الزاهرة',
+                },
+                4961,
+            );
+
+            expect(actual).toBeTrue();
+        });
+    });
+
     describe('isPoeticGroup', () => {
         const avgProseWordDensity = 0.02;
 
@@ -160,7 +213,7 @@ describe('poetry', () => {
                     createObservation('Short poetic line', 400, 100, 500),
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity);
                 expect(result).toBe(false);
             });
 
@@ -170,7 +223,7 @@ describe('poetry', () => {
                     createObservation('A poetic line with spacing', 50, 100, 600),
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity);
                 expect(result).toBe(false);
             });
 
@@ -185,7 +238,7 @@ describe('poetry', () => {
                     ), // 14 words
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity);
                 expect(result).toBe(false);
             });
 
@@ -194,7 +247,7 @@ describe('poetry', () => {
                     createObservation('One', 400, 100, 600), // Only 1 word, less than minWordCount of 2
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity);
                 expect(result).toBe(false);
             });
 
@@ -204,7 +257,7 @@ describe('poetry', () => {
                 ];
 
                 // Test with avgProseWordDensity = 0
-                const result = isPoeticGroup(group, imageWidth, 0, DEFAULT_POETRY_OPTIONS);
+                const result = isPoeticGroup(group, imageWidth, 0);
                 expect(result).toBe(false); // Should return false when density comparison fails
             });
         });
@@ -1198,7 +1251,223 @@ describe('poetry', () => {
             ];
 
             const avgProseWordDensity = calculateAverageProseDensity(prose, 4961);
-            console.log('avgProseWordDensity', avgProseWordDensity);
+
+            const poetry = prose.filter((p) => isWidePoeticLine(p, 4961, avgProseWordDensity));
+            expect(poetry).toBeEmpty();
+        });
+
+        it('should not detect any poetry in the body nor footnotes', () => {
+            const prose = [
+                {
+                    bbox: {
+                        height: 186,
+                        width: 3363,
+                        x: 752,
+                        y: 74,
+                    },
+                    text: 'من إقرار الكفار في قوله: (قل من يرزقكم من السماء والأرض أمن يملك السمع',
+                },
+                {
+                    bbox: {
+                        height: 158,
+                        width: 1505,
+                        x: 733,
+                        y: 325,
+                    },
+                    text: 'والأبصار) (يونس: ٣١) وغير ذلك.',
+                },
+                {
+                    bbox: {
+                        height: 187,
+                        width: 3112,
+                        x: 743,
+                        y: 566,
+                    },
+                    text: 'قالوا: القرآن لا يجوز العمل به لنا، ولأمثالنا، ولا بكلام الرسول، ولا بكلام',
+                },
+                {
+                    bbox: {
+                        height: 217,
+                        width: 1908,
+                        x: 732,
+                        y: 806,
+                    },
+                    text: 'المتقدمين، ولا نطيع إلا ما ذكره المتأخرون (١).',
+                },
+                {
+                    bbox: {
+                        height: 195,
+                        width: 3335,
+                        x: 752,
+                        y: 1069,
+                    },
+                    text: 'قلت لهم: أنا أخاصم الحنفي، بكلام المتأخرين من الحنفية، والمالكي، والشافعي،',
+                },
+                {
+                    bbox: {
+                        height: 195,
+                        width: 3335,
+                        x: 724,
+                        y: 1311,
+                    },
+                    text: 'والحنبلي، كلاً: أخاصمه بكتب المتأخرين من علمائهم، الذين يعتمدون عليهم،',
+                },
+                {
+                    bbox: {
+                        height: 186,
+                        width: 3335,
+                        x: 743,
+                        y: 1563,
+                    },
+                    text: 'فلما أبوا ذلك، نقلت كلام العلماء من كل مذهب لأهله، وذكرت كل ما قالوا،',
+                },
+                {
+                    bbox: {
+                        height: 176,
+                        width: 3428,
+                        x: 761,
+                        y: 1823,
+                    },
+                    text: 'بعدما صرحت الدعوة عند القبور، والنذر لها، فعرفوا ذلك، وتحققوه، فلم يزدهم إلا',
+                },
+                {
+                    bbox: {
+                        height: 177,
+                        width: 334,
+                        x: 761,
+                        y: 2046,
+                    },
+                    text: 'نفوراً (٢).',
+                },
+                {
+                    bbox: {
+                        height: 177,
+                        width: 3344,
+                        x: 743,
+                        y: 2316,
+                    },
+                    text: 'وأما التكفير: فأنا أكفر من عرف دين الرسول، ثم بعد ما عرفه سبه، ونهى الناس',
+                },
+                {
+                    bbox: {
+                        height: 176,
+                        width: 3400,
+                        x: 752,
+                        y: 2558,
+                    },
+                    text: 'عنه، وعادى من فعله، فهذا: هو الذي أكفر، وأكثر الأمة - ولله الحمد - ليسوا',
+                },
+                {
+                    bbox: {
+                        height: 204,
+                        width: 3335,
+                        x: 752,
+                        y: 2790,
+                    },
+                    text: 'كذلك(٣)، وأما القتال: فلم نقاتل أحداً إلى اليوم، إلا دون النفس والحرمة، وهم:',
+                },
+                {
+                    bbox: {
+                        height: 195,
+                        width: 3242,
+                        x: 733,
+                        y: 3041,
+                    },
+                    text: 'الذين أتونا في ديارنا، ولا أبقوا ممكناً(٤)، ولكن: قد نقاتل بعضهم، على سبيل',
+                },
+                {
+                    bbox: {
+                        height: 158,
+                        width: 3279,
+                        x: 733,
+                        y: 3321,
+                    },
+                    text: 'المقابلة، وجزاء سيئة سيئة مثلها، وكذلك. من جاهر بسب دين الرسول، بعدما',
+                },
+                {
+                    bbox: {
+                        height: 186,
+                        width: 3483,
+                        x: 752,
+                        y: 3554,
+                    },
+                    text: 'عرف، فإنا نبين لكم: أن هذا هو الحق، الذي لا ريب فيه، وأن الواجب: إشاعته في',
+                },
+                {
+                    bbox: {
+                        height: 158,
+                        width: 1430,
+                        x: 733,
+                        y: 3823,
+                    },
+                    text: 'الناس، وتعليمه النساء، والرجال.',
+                },
+                {
+                    bbox: {
+                        height: 149,
+                        width: 3158,
+                        x: 808,
+                        y: 4437,
+                    },
+                    text: '(١) انظر إلى هذا التمرد والعناد على كتاب اللّٰه وسنة رسوله ومنهج الصحابة العظماء والسلف',
+                },
+                {
+                    bbox: {
+                        height: 130,
+                        width: 306,
+                        x: 733,
+                        y: 4642,
+                    },
+                    text: 'الكرماء.',
+                },
+                {
+                    bbox: {
+                        height: 149,
+                        width: 3205,
+                        x: 780,
+                        y: 4837,
+                    },
+                    text: '(٢) وانظر إلى هذا التمرد والعناد أيضاً حتى على كتب المتأخرين بعد تنزل الإمام محمد معهم إلى',
+                },
+                {
+                    bbox: {
+                        height: 140,
+                        width: 3353,
+                        x: 761,
+                        y: 5042,
+                    },
+                    text: 'هذا المستوى فأي مبالغة في إقناع هؤلاء المتمردين وأي حرص على هدايتهم أي تنزل معهم يفوق هذا',
+                },
+                {
+                    bbox: {
+                        height: 158,
+                        width: 3446,
+                        x: 733,
+                        y: 5228,
+                    },
+                    text: 'الذي قام به الإمام محمد بعد شيخ الإسلام ابن تيمية وتلاميذه ألا بعداً وسحقاً للمعاندين المستكبرين.',
+                },
+                {
+                    bbox: {
+                        height: 167,
+                        width: 2889,
+                        x: 780,
+                        y: 5433,
+                    },
+                    text: '(٣) ولا أظلم ممن يفتري عليه أنه يكفر على طريقة الخوارج وأنه يكفر عموم المسلمين.',
+                },
+                {
+                    bbox: {
+                        height: 130,
+                        width: 2684,
+                        x: 789,
+                        y: 5646,
+                    },
+                    text: '(٤) هل يلام الإمام محمد وأنصاره بعد كل هذا في قتال هؤلاء الضالين المعتدين.',
+                },
+            ];
+
+            const avgProseWordDensity = calculateAverageProseDensity(prose, 4961);
 
             const poetry = prose.filter((p) => isWidePoeticLine(p, 4961, avgProseWordDensity));
             expect(poetry).toBeEmpty();

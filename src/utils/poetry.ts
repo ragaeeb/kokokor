@@ -68,11 +68,11 @@ export const calculateAverageProseDensity = (
  * @param options - Poetry detection configuration options
  * @returns True if the observations form a valid poetry pair
  */
-const isPoetryPair = (
+export const isPoetryPair = (
     obs1: Observation,
     obs2: Observation,
     imageWidth: number,
-    options: PoetryDetectionOptions,
+    options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ): boolean => {
     const words1 = obs1.text.split(' ').length;
     const words2 = obs2.text.split(' ').length;
@@ -90,7 +90,20 @@ const isPoetryPair = (
     const wordCountDiffRatio = Math.abs(words1 - words2) / maxWords;
     if (wordCountDiffRatio >= options.pairWordCountSimilarityRatio) return false;
 
-    // Check if the pair as a whole is centered
+    // For pairs (hemistichs), the centering can be less strict, especially if
+    // there is a clear visual gap separating them, which is a common poetic layout.
+    const leftObs = obs1.bbox.x < obs2.bbox.x ? obs1 : obs2;
+    const rightObs = obs1.bbox.x < obs2.bbox.x ? obs2 : obs1;
+    const gap = rightObs.bbox.x - (leftObs.bbox.x + leftObs.bbox.width);
+
+    // A gap is considered significant if it's large relative to the page width OR the text width.
+    // This allows for more flexible detection of visually separated hemistichs.
+    const hasSignificantGap = gap > imageWidth * 0.07 || gap > avgWidth * 0.25;
+    const centeringOptions = hasSignificantGap
+        ? { ...options, centerToleranceRatio: options.centerToleranceRatio * 2.5 }
+        : options;
+
+    // Check if the pair as a whole is centered using the determined options.
     const leftX = Math.min(obs1.bbox.x, obs2.bbox.x);
     const rightmostPoint = Math.max(obs1.bbox.x + obs1.bbox.width, obs2.bbox.x + obs2.bbox.width);
     const combinedBbox = {
@@ -101,7 +114,8 @@ const isPoetryPair = (
         x: leftX,
         y: Math.min(obs1.bbox.y, obs2.bbox.y),
     };
-    return isObservationCentered(combinedBbox, imageWidth, options);
+
+    return isObservationCentered(combinedBbox, imageWidth, centeringOptions);
 };
 
 /**
@@ -160,7 +174,7 @@ export const isWidePoeticLine = (
 
             // For very wide lines (>75%), use the lenient default ratio.
             // For other wide lines (60-75%), use a much stricter ratio to avoid prose.
-            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio : 0.6;
+            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio : 0.5;
 
             if (densityRatio < requiredDensityRatio) {
                 return true;
