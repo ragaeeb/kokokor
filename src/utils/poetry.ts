@@ -1,6 +1,6 @@
 import type { Observation, PoetryDetectionOptions } from '@/types';
 
-import { MAX_PROSE_WORD_COUNT } from './constants';
+import { DEFAULT_POETRY_OPTIONS, MAX_PROSE_WORD_COUNT } from './constants';
 import { isObservationCentered } from './layout';
 
 /**
@@ -24,7 +24,10 @@ import { isObservationCentered } from './layout';
 export const calculateAverageProseDensity = (
     observations: Observation[],
     imageWidth: number,
-    options: Pick<PoetryDetectionOptions, 'centerToleranceRatio' | 'minMarginRatio' | 'minWordCount'>,
+    options: Pick<
+        PoetryDetectionOptions,
+        'centerToleranceRatio' | 'minMarginRatio' | 'minWordCount'
+    > = DEFAULT_POETRY_OPTIONS,
 ): number => {
     let totalWords = 0;
     let totalWidth = 0;
@@ -121,11 +124,11 @@ const isPoetryPair = (
  * @param options - Poetry detection configuration options
  * @returns True if the observation represents a wide poetic line
  */
-const isWidePoeticLine = (
+export const isWidePoeticLine = (
     obs: Observation,
     imageWidth: number,
     avgProseWordDensity: number,
-    options: PoetryDetectionOptions,
+    options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ) => {
     const wordCount = obs.text.split(' ').length;
 
@@ -137,12 +140,31 @@ const isWidePoeticLine = (
         return false;
     }
 
+    // minWidthRatioForMerged is 0.6 by default
     if (obs.bbox.width > imageWidth * options.minWidthRatioForMerged) {
-        const obsDensity = wordCount / obs.bbox.width;
-        const densityThreshold = avgProseWordDensity * options.wordDensityComparisonRatio;
+        // Only perform density comparison if we have a reliable prose baseline
+        if (avgProseWordDensity <= 0) {
+            return false;
+        }
 
-        if (obsDensity < densityThreshold && obsDensity > 0) {
-            return true;
+        const obsDensity = wordCount / obs.bbox.width;
+
+        // The observation density should be notably lower than prose density.
+        if (obsDensity > 0) {
+            const densityRatio = obsDensity / avgProseWordDensity;
+
+            // To prevent false positives from prose, we require a significant density difference.
+            // The threshold for this difference is tiered based on the line's width. Exceptionally
+            // wide lines are more likely to be poetry, so we can use a more lenient check.
+            const widthRatio = obs.bbox.width / imageWidth;
+
+            // For very wide lines (>75%), use the lenient default ratio.
+            // For other wide lines (60-75%), use a much stricter ratio to avoid prose.
+            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio : 0.65;
+
+            if (densityRatio < requiredDensityRatio) {
+                return true;
+            }
         }
     }
 
@@ -175,7 +197,7 @@ export const isPoeticGroup = (
     group: Observation[],
     imageWidth: number,
     avgProseWordDensity: number,
-    options: PoetryDetectionOptions,
+    options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ) => {
     if (group.length === 1) {
         return isWidePoeticLine(group[0], imageWidth, avgProseWordDensity, options);
