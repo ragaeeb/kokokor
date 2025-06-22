@@ -298,6 +298,18 @@ describe('paragraphs', () => {
             expect(actual).toEqual(textLines);
         });
 
+        it('should use custom verticalJumpFactor and widthTolerance parameters', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 100, x: 0, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 10, width: 100, x: 0, y: 20 }, text: 'Line 2' },
+            ];
+
+            // Test with different parameters
+            const actual = mapTextLinesToParagraphs(textLines, 1.5, 0.9);
+
+            expect(actual).toHaveLength(1);
+            expect(actual[0].text).toContain('Line');
+        });
         it('should handle empty input array', () => {
             const actual = mapTextLinesToParagraphs([]);
             expect(actual).toEqual([]);
