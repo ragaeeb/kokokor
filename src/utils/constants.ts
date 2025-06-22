@@ -55,3 +55,15 @@ export const DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS: MapObservationsToTextLi
  * that should be split during text processing.
  */
 export const MAX_PROSE_WORD_COUNT = 25;
+
+/**
+ * A regex pattern to detect common prose punctuation.
+ * This includes:
+ * - Arabic and English commas (، ,)
+ * - Arabic and English semicolons (؛ ;)
+ * - Arabic and English question marks (؟ ?)
+ * - Arabic and English periods/full stops (۔ .)
+ * - Colons (:)
+ * - Parentheses (())
+ */
+export const PROSE_PUNCTUATION_PATTERN = /[،,؛;؟?۔.:()]/;

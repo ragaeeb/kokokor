@@ -1,6 +1,6 @@
 import type { Observation, PoetryDetectionOptions } from '@/types';
 
-import { DEFAULT_POETRY_OPTIONS, MAX_PROSE_WORD_COUNT } from './constants';
+import { DEFAULT_POETRY_OPTIONS, MAX_PROSE_WORD_COUNT, PROSE_PUNCTUATION_PATTERN } from './constants';
 import { isObservationCentered } from './layout';
 
 /**
@@ -150,6 +150,15 @@ export const isWidePoeticLine = (
         return false;
     }
 
+    // Heuristic: Prose lines often contain punctuation like commas or parentheses,
+    // which are less common in single, distinct lines of poetry. This helps filter
+    // out wide prose that might otherwise be misidentified. Footnotes within pairs
+    // like "text (1)" are handled by the isPoetryPair logic, so this check is
+    // safe for single-line analysis.
+    if (PROSE_PUNCTUATION_PATTERN.test(obs.text)) {
+        return false;
+    }
+
     if (!isObservationCentered(obs.bbox, imageWidth, options)) {
         return false;
     }
@@ -167,14 +176,12 @@ export const isWidePoeticLine = (
         if (obsDensity > 0) {
             const densityRatio = obsDensity / avgProseWordDensity;
 
-            // To prevent false positives from prose, we require a significant density difference.
-            // The threshold for this difference is tiered based on the line's width. Exceptionally
-            // wide lines are more likely to be poetry, so we can use a more lenient check.
+            // To prevent false positives from prose, the density check is tiered. The
+            // original threshold for very wide lines was too lenient. This version
+            // tightens it slightly, which works well in combination with the
+            // punctuation heuristic above.
             const widthRatio = obs.bbox.width / imageWidth;
-
-            // For very wide lines (>75%), use the lenient default ratio.
-            // For other wide lines (60-75%), use a much stricter ratio to avoid prose.
-            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio : 0.5;
+            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio * 0.95 : 0.5;
 
             if (densityRatio < requiredDensityRatio) {
                 return true;

@@ -1,4 +1,4 @@
-import type { BoundingBox, CenteringOptions, Observation } from '@/types';
+import type { BoundingBox, CenteringOptions } from '@/types';
 
 /**
  * Determines if an observation is centered on the page with sufficient whitespace around it.
