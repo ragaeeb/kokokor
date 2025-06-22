@@ -110,15 +110,6 @@ export type PoetryDetectionOptions = CenteringOptions & {
     wordDensityComparisonRatio: number;
 };
 
-export type RebuildOptions = BuildTextBoxOptions & {
-    /**
-     * Symbol or text to use as a footer marker when horizontal lines are detected.
-     * When provided, this text will be inserted below the last horizontal line in the document.
-     * @default undefined
-     */
-    readonly footerSymbol?: string;
-};
-
 export type Size = {
     /**
      * The height of the bounding box.

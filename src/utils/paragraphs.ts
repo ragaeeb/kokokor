@@ -60,7 +60,7 @@ export const mapObservationsToTextLines = (
     const avgProseWordDensity = calculateAverageProseDensity(observations, dpi.width, options.poetryDetectionOptions!);
     const marked = indexItemsAsLines(observations, dpi.y, options.pixelTolerance!, options.lineHeightFactor).map(
         (o) => {
-            const e: TextBlock = { ...o };
+            const e: TextBlock & { index: number } = { ...o };
 
             const isObservationInsideRectangle = options.rectangles?.some((rectangle) =>
                 isBoundingBoxContained(o.bbox, rectangle, options.pixelTolerance!),
