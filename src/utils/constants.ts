@@ -14,10 +14,12 @@ export const DEFAULT_POETRY_OPTIONS: PoetryDetectionOptions = {
     pairWidthSimilarityRatio: 0.4,
     pairWordCountSimilarityRatio: 0.5,
     wordDensityComparisonRatio: 0.95,
-};
+} as const;
 
 export const DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS: MapObservationsToTextLinesOptions = {
+    centerToleranceRatio: 0.05,
     horizontalLines: [],
+    minMarginRatio: 0.2,
     pixelTolerance: 5,
     poetryDetectionOptions: DEFAULT_POETRY_OPTIONS,
     rectangles: [],
