@@ -9,17 +9,6 @@ describe('poetry', () => {
         text,
     });
 
-    const defaultPoetryOptions = {
-        centerToleranceRatio: 0.05,
-        maxVerticalGapRatio: 2.0,
-        minMarginRatio: 0.1,
-        minWidthRatioForMerged: 0.6,
-        minWordCount: 2,
-        pairWidthSimilarityRatio: 0.4,
-        pairWordCountSimilarityRatio: 0.5,
-        wordDensityComparisonRatio: 0.95,
-    };
-
     const imageWidth = 1000;
 
     describe('calculateAverageProseDensity', () => {
@@ -170,7 +159,7 @@ describe('poetry', () => {
                     createObservation('Short poetic line', 400, 100, 500),
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -180,7 +169,7 @@ describe('poetry', () => {
                     createObservation('A poetic line with spacing', 50, 100, 600),
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -195,7 +184,7 @@ describe('poetry', () => {
                     ), // 14 words
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -204,7 +193,7 @@ describe('poetry', () => {
                     createObservation('One', 400, 100, 600), // Only 1 word, less than minWordCount of 2
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -214,7 +203,7 @@ describe('poetry', () => {
                 ];
 
                 // Test with avgProseWordDensity = 0
-                const result = isPoeticGroup(group, imageWidth, 0, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, 0, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false); // Should return false when density comparison fails
             });
         });
@@ -228,7 +217,7 @@ describe('poetry', () => {
 
                 // Combined bbox: x=350, width=280 (350+200-350=200, but rightmost is 450+180=630, so width=630-350=280)
                 // Center at 350+280/2 = 490, image center = 500, within tolerance
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(true);
             });
 
@@ -239,7 +228,7 @@ describe('poetry', () => {
                 ];
 
                 // Width difference ratio: |100-400|/((100+400)/2) = 300/250 = 1.2, which is > 0.4
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -250,7 +239,7 @@ describe('poetry', () => {
                 ];
 
                 // Word count difference ratio: |2-8|/max(2,8) = 6/8 = 0.75, which is > 0.5
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -261,7 +250,7 @@ describe('poetry', () => {
                 ];
 
                 // Combined would not be centered
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -271,7 +260,7 @@ describe('poetry', () => {
                     createObservation('Two words here', 380, 100, 160), // 3 words
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -281,7 +270,7 @@ describe('poetry', () => {
                     createObservation('One', 380, 100, 160), // 1 word, less than minWordCount
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -293,7 +282,7 @@ describe('poetry', () => {
 
                 // Combined bbox: leftX = min(600, 250) = 250, rightmost = max(750, 410) = 750
                 // Width = 750 - 250 = 500, center = 250 + 500/2 = 500 (exactly image center)
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(true);
             });
         });
@@ -301,7 +290,7 @@ describe('poetry', () => {
         describe('edge cases with different poetry options', () => {
             it('should work with stricter centering tolerance', () => {
                 const strictOptions = {
-                    ...defaultPoetryOptions,
+                    ...DEFAULT_POETRY_OPTIONS,
                     centerToleranceRatio: 0.01, // Very strict centering
                 };
 
@@ -315,7 +304,7 @@ describe('poetry', () => {
 
             it('should work with higher minimum word count', () => {
                 const strictOptions = {
-                    ...defaultPoetryOptions,
+                    ...DEFAULT_POETRY_OPTIONS,
                     minWordCount: 5,
                 };
 
@@ -329,7 +318,7 @@ describe('poetry', () => {
 
             it('should work with higher minimum width ratio for merged lines', () => {
                 const strictOptions = {
-                    ...defaultPoetryOptions,
+                    ...DEFAULT_POETRY_OPTIONS,
                     minWidthRatioForMerged: 0.8, // Require 80% of image width
                 };
 
@@ -350,7 +339,7 @@ describe('poetry', () => {
                     createObservation('Third line', 390, 140, 155),
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -362,7 +351,7 @@ describe('poetry', () => {
                     createObservation('Fourth line', 385, 160, 165),
                 ];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
 
@@ -506,7 +495,7 @@ describe('poetry', () => {
             it('should reject empty groups', () => {
                 const group = [];
 
-                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, defaultPoetryOptions);
+                const result = isPoeticGroup(group, imageWidth, avgProseWordDensity, DEFAULT_POETRY_OPTIONS);
                 expect(result).toBe(false);
             });
         });
