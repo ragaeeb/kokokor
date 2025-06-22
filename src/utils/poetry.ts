@@ -1,5 +1,6 @@
 import type { Observation, PoetryDetectionOptions } from '@/types';
 
+import { MAX_PROSE_WORD_COUNT } from './constants';
 import { isObservationCentered } from './layout';
 
 /**
@@ -21,7 +22,7 @@ export const calculateAverageProseDensity = (
             !isObservationCentered(obs.bbox, imageWidth, options) &&
             obs.bbox.width > imageWidth * 0.4 && // Slightly lower threshold
             wordCount >= options.minWordCount &&
-            wordCount <= 25; // Exclude very long lines that might be corrupted OCR
+            wordCount <= MAX_PROSE_WORD_COUNT; // Exclude very long lines that might be corrupted OCR
 
         if (isLikelyProse) {
             totalWords += wordCount;

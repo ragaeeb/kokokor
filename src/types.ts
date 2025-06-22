@@ -16,53 +16,6 @@ export type BoundingBox = Size & {
 };
 
 /**
- * Configuration options for OCR result processing and paragraph reconstruction.
- * These options control how text observations are grouped, aligned, and formatted.
- */
-export type BuildTextBoxOptions = Partial<CenteringOptions> & {
-    /**
-     * The default DPI to use when the OCR result doesn't provide DPI information.
-     * This ensures consistent scaling even with incomplete metadata.
-     * @default 72
-     */
-    readonly fallbackDPI?: number;
-
-    /**
-     * The ratio used to consider what a line is based on the vertical proximity.
-     * @default 0.49
-     */
-    readonly lineHeightFactor?: number;
-
-    /**
-     * Vertical tolerance in pixels (at 72 DPI) for line detection.
-     * Higher values will be more lenient in grouping text with vertical offsets into the same line.
-     * @default 5
-     */
-    readonly pixelTolerance?: number;
-
-    /**
-     * The target DPI for x-coordinate normalization.
-     * Used to ensure consistent alignment thresholds regardless of source document resolution.
-     * @default 300
-     */
-    readonly standardDpiX?: number;
-
-    /**
-     * Factor determining how much larger a vertical gap needs to be to indicate a paragraph break.
-     * A value of 2 means a gap twice as large as the previous gap will start a new paragraph.
-     * @default 2
-     */
-    readonly verticalJumpFactor?: number;
-
-    /**
-     * Fraction of maximum line width below which a line is considered "short" (0-1).
-     * Short lines typically indicate paragraph endings and trigger paragraph breaks.
-     * @default 0.85
-     */
-    readonly widthTolerance?: number;
-};
-
-/**
  * Configuration options for determining if an observation is centered.
  */
 export type CenteringOptions = {
@@ -83,18 +36,6 @@ export type CenteringOptions = {
      * @default 0.1
      */
     readonly minMarginRatio: number;
-};
-
-/**
- * Represents an observation with an index used for grouping observations by line or paragraph.
- * This extends the base Observation type by adding an index property for sorting and grouping.
- */
-export type IndexedObservation = Observation & {
-    /**
-     * The index representing the line or paragraph number this observation belongs to.
-     * Used for grouping related text elements together.
-     */
-    readonly index: number;
 };
 
 export type MapObservationsToTextLinesOptions = CenteringOptions & {
@@ -193,7 +134,7 @@ export type Size = {
 /**
  * A reconstructed text paragraph from the raw OCR data.
  */
-export type TextBlock = IndexedObservation & {
+export type TextBlock = Observation & {
     /** If the text is centered on the page. This is true if there is at least some padding around the text and it does not span up to the margins. */
     isCentered?: boolean;
 

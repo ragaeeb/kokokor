@@ -136,7 +136,7 @@ export const mapMatrixToBoundingBox = (box: [number, number, number, number]) =>
  * Analyzes the typical line spacing in the document to determine
  * what constitutes a normal gap vs. an intra-line gap.
  *
- * @param sortedObservations - Array of observations sorted by y-coordinate
+ * @param sortedItems - Array of observations sorted by y-coordinate
  * @returns Object containing typical gap size and minimum intra-line gap threshold
  */
 export const analyzeLineSpacing = <T extends { bbox: { y: number } }>(
@@ -169,7 +169,7 @@ export const analyzeLineSpacing = <T extends { bbox: { y: number } }>(
 /**
  * Computes an adaptive line height factor based on item heights and spacing patterns.
  *
- * @param items - Array of heights from bbox properties
+ * @param heights - Array of heights from bbox properties
  * @param typicalGap - Typical vertical gap between lines in the document
  * @returns Adaptive line height factor (0.15-0.4)
  */

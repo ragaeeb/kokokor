@@ -24,3 +24,5 @@ export const DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS: MapObservationsToTextLi
     poetryDetectionOptions: DEFAULT_POETRY_OPTIONS,
     rectangles: [],
 } as const;
+
+export const MAX_PROSE_WORD_COUNT = 25;

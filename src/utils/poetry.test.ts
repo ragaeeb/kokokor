@@ -4,7 +4,7 @@ import { DEFAULT_POETRY_OPTIONS } from './constants';
 import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
 
 describe('poetry', () => {
-    describe.only('isValidPoetryPair', () => {
+    describe('isValidPoetryPair', () => {
         it('should detect the valid pair that takes up full width', () => {
             const actual = isPoeticGroup(
                 [
