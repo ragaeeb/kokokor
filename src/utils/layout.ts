@@ -126,30 +126,6 @@ export const isBoundingBoxContained = (inner: BoundingBox, outer: BoundingBox, t
 };
 
 /**
- * Checks if two observations are close enough vertically to be considered a poetry pair.
- *
- * This is used in poetry detection to identify potential hemistichs (half-lines) that
- * should be grouped together. The vertical gap is measured as a ratio of the average
- * height of the two observations to account for different font sizes.
- *
- * @param obs1 - First observation to compare
- * @param obs2 - Second observation to compare
- * @param maxVerticalGapRatio - Maximum allowed vertical gap as a ratio of average height (default: 2.0)
- * @returns True if the observations are vertically aligned within the specified tolerance
- */
-export const areObservationsVerticallyAligned = (
-    obs1: Observation,
-    obs2: Observation,
-    maxVerticalGapRatio = 2,
-): boolean => {
-    const avgHeight = (obs1.bbox.height + obs2.bbox.height) / 2;
-    const verticalGap = Math.abs(obs1.bbox.y - obs2.bbox.y);
-    const maxAllowedGap = avgHeight * maxVerticalGapRatio;
-
-    return verticalGap <= maxAllowedGap;
-};
-
-/**
  * Converts bounding box coordinates from array format to object format.
  * Transforms [x1, y1, x2, y2] coordinates to {x, y, width, height} format.
  *
