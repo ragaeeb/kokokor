@@ -10,7 +10,7 @@ import type { BoundingBox, CenteringOptions, Observation } from '@/types';
  * This prevents false positives where wide observations span most of the page
  * but happen to have their center point near the page center.
  *
- * @param observation - The observation to check for centering
+ * @param bbox - The bounding box to check for centering
  * @param imageWidth - The total width of the page/image in pixels
  * @param options - Configuration options for centering criteria
  * @param options.centerToleranceRatio - The tolerance for center point alignment as a ratio of image width (default: 0.05 = 5%)
@@ -20,17 +20,17 @@ import type { BoundingBox, CenteringOptions, Observation } from '@/types';
  * @example
  * ```typescript
  * // Using default options
- * isObservationCentered({ bbox: { width: 286, x: 298 } }, 960, { centerToleranceRatio: 0.05, minMarginRatio: 0.1 }) // true
+ * isObservationCentered({ width: 286, x: 298 }, 960, { centerToleranceRatio: 0.05, minMarginRatio: 0.1 }) // true
  *
  * // Using custom options for stricter centering
  * isObservationCentered(
- *   { bbox: { width: 286, x: 298 } },
+ *   { width: 286, x: 298 },
  *   960,
  *   { centerToleranceRatio: 0.02, minMarginRatio: 0.15 }
  * )
  *
  * // A wide observation spanning most of the page - should return false
- * isObservationCentered({ bbox: { width: 2026, x: 232 } }, 2481, { centerToleranceRatio: 0.05, minMarginRatio: 0.1 }) // false
+ * isObservationCentered({ width: 2026, x: 232 }, 2481, { centerToleranceRatio: 0.05, minMarginRatio: 0.1 }) // false
  * ```
  */
 export const isObservationCentered = (bbox: BoundingBox, imageWidth: number, options: CenteringOptions) => {
@@ -54,6 +54,10 @@ export const isObservationCentered = (bbox: BoundingBox, imageWidth: number, opt
 
 /**
  * Filters out horizontal lines that are contained within any of the provided rectangles.
+ *
+ * This is useful for removing header/footer lines that appear within document sections
+ * while preserving lines that mark true document boundaries or section separators.
+ *
  * @param rectangles - Array of rectangles to check containment against
  * @param horizontalLines - Array of horizontal lines to filter
  * @param tolerance - Pixel tolerance for boundary checking (default: 5)
@@ -97,10 +101,15 @@ export const getLastHorizontalLineY = (
 
 /**
  * Checks if a bounding box is contained within another bounding box with tolerance.
+ *
+ * The tolerance extends the outer bounding box in all directions, making containment
+ * checking more lenient for cases where elements might be slightly outside due to
+ * OCR inaccuracies or minor positioning variations.
+ *
  * @param inner - The bounding box to check if it's inside
  * @param outer - The bounding box to check if it contains the inner box
- * @param tolerance - The pixel tolerance for boundary checking
- * @returns True if the inner bounding box is contained within the outer bounding box
+ * @param tolerance - The pixel tolerance for boundary checking (extends outer box boundaries)
+ * @returns True if the inner bounding box is contained within the outer bounding box (with tolerance)
  */
 export const isBoundingBoxContained = (inner: BoundingBox, outer: BoundingBox, tolerance: number): boolean => {
     const outerLeft = outer.x - tolerance;
@@ -117,7 +126,16 @@ export const isBoundingBoxContained = (inner: BoundingBox, outer: BoundingBox, t
 };
 
 /**
- * Check if two observations are close enough vertically to be considered a poetry pair
+ * Checks if two observations are close enough vertically to be considered a poetry pair.
+ *
+ * This is used in poetry detection to identify potential hemistichs (half-lines) that
+ * should be grouped together. The vertical gap is measured as a ratio of the average
+ * height of the two observations to account for different font sizes.
+ *
+ * @param obs1 - First observation to compare
+ * @param obs2 - Second observation to compare
+ * @param maxVerticalGapRatio - Maximum allowed vertical gap as a ratio of average height (default: 2.0)
+ * @returns True if the observations are vertically aligned within the specified tolerance
  */
 export const areObservationsVerticallyAligned = (
     obs1: Observation,
@@ -135,7 +153,7 @@ export const areObservationsVerticallyAligned = (
  * Converts bounding box coordinates from array format to object format.
  * Transforms [x1, y1, x2, y2] coordinates to {x, y, width, height} format.
  *
- * @param box - Array containing [x1, y1, x2, y2] coordinates
+ * @param box - Array containing [x1, y1, x2, y2] coordinates where (x1,y1) is top-left and (x2,y2) is bottom-right
  * @returns Bounding box object with x, y, width, and height properties
  */
 export const mapMatrixToBoundingBox = (box: [number, number, number, number]) => {
@@ -147,8 +165,14 @@ export const mapMatrixToBoundingBox = (box: [number, number, number, number]) =>
  * Analyzes the typical line spacing in the document to determine
  * what constitutes a normal gap vs. an intra-line gap.
  *
- * @param sortedItems - Array of observations sorted by y-coordinate
+ * This analysis helps distinguish between text that belongs on the same logical line
+ * but was split by OCR, versus text that represents separate lines. The function
+ * calculates percentiles of vertical gaps to establish thresholds.
+ *
+ * @param sortedItems - Array of observations sorted by y-coordinate (top to bottom)
  * @returns Object containing typical gap size and minimum intra-line gap threshold
+ * @returns returns.typicalGap - The 75th percentile gap size, representing normal line spacing
+ * @returns returns.minIntraLineGap - Threshold below which gaps are considered intra-line
  */
 export const analyzeLineSpacing = <T extends { bbox: { y: number } }>(
     sortedItems: T[],
@@ -180,9 +204,16 @@ export const analyzeLineSpacing = <T extends { bbox: { y: number } }>(
 /**
  * Computes an adaptive line height factor based on item heights and spacing patterns.
  *
- * @param heights - Array of heights from bbox properties
- * @param typicalGap - Typical vertical gap between lines in the document
- * @returns Adaptive line height factor (0.15-0.4)
+ * The line height factor is used to determine how much vertical space to allow when
+ * grouping text observations into lines. A smaller factor groups items more aggressively,
+ * while a larger factor is more conservative about grouping.
+ *
+ * @param heights - Array of heights from bounding box properties
+ * @param typicalGap - Typical vertical gap between lines in the document (from analyzeLineSpacing)
+ * @returns Adaptive line height factor between 0.15 and 0.4
+ *   - 0.15: Small gaps relative to text height (likely intra-line groupings)
+ *   - 0.25: Medium gaps (standard line spacing)
+ *   - 0.4: Large gaps (widely spaced separate lines)
  */
 export const computeAdaptiveLineHeightFactor = (heights: number[], typicalGap: number): number => {
     if (heights.length === 0) {
