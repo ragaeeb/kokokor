@@ -123,18 +123,22 @@ export const normalizeObservationsX = (observations: Observation[], dpi: number,
  * // }
  * ```
  */
-export const simplifyObservation = (observation: Observation): Observation => {
-    return {
-        bbox: {
-            height: Math.trunc(observation.bbox.height),
-            width: Math.trunc(observation.bbox.width),
-            x: Math.trunc(observation.bbox.x),
-            y: Math.trunc(observation.bbox.y),
-        },
-        text: observation.text
-            .split(' ')
-            .filter((word) => word.length > 1)
-            .slice(0, 1)
-            .join(' '),
-    };
+export const simplifyObservations = (observations: Observation[], truncateText = false): Observation[] => {
+    return observations.map((observation) => {
+        return {
+            bbox: {
+                height: Math.trunc(observation.bbox.height),
+                width: Math.trunc(observation.bbox.width),
+                x: Math.trunc(observation.bbox.x),
+                y: Math.trunc(observation.bbox.y),
+            },
+            text: truncateText
+                ? observation.text
+                      .split(' ')
+                      .filter((word) => word.length > 1)
+                      .slice(0, 1)
+                      .join(' ')
+                : observation.text,
+        };
+    });
 };

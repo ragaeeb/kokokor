@@ -112,6 +112,10 @@ export const mapObservationsToTextLines = (
 
     groups = sortGroupsHorizontally(groups);
 
+    if (options.log) {
+        options.log('isPoeticGroup', groups, avgProseWordDensity, options.poetryDetectionOptions);
+    }
+
     for (const group of groups) {
         if (isPoeticGroup(group, dpi.width, avgProseWordDensity, options.poetryDetectionOptions!)) {
             for (const observation of group) {
