@@ -7,6 +7,16 @@ import { indexItemsAsLines, indexItemsAsParagraphs } from './marking';
 import { filterNoisyObservations, mapOcrResultToRTLObservations, normalizeObservationsX } from './normalization';
 import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
 
+/**
+ * Preprocesses observations by filtering noise, flipping coordinates for RTL text,
+ * and normalizing x-coordinates for proper alignment.
+ *
+ * @param observations - Array of text observations to preprocess
+ * @param imageWidth - Total width of the document/image in pixels
+ * @param dpiX - Horizontal DPI for coordinate normalization
+ * @param options - Optional logging configuration
+ * @returns Preprocessed observations ready for line grouping
+ */
 export const flipAndAlignObservations = (
     observations: Observation[],
     imageWidth: number,
@@ -32,6 +42,18 @@ export const flipAndAlignObservations = (
     return normalizeObservationsX(observations, dpiX);
 };
 
+/**
+ * Converts OCR observations into structured text lines with metadata.
+ *
+ * Groups observations into lines based on vertical proximity, applies centering detection,
+ * identifies headings (text within rectangles), footnotes (text below horizontal lines),
+ * and poetic content. Also performs poetry detection to preserve poetic formatting.
+ *
+ * @param observations - Array of OCR text observations
+ * @param dpi - Document DPI information including width and height
+ * @param opts - Configuration options for text line processing
+ * @returns Array of text blocks with metadata (centering, headings, footnotes, poetry)
+ */
 export const mapObservationsToTextLines = (
     observations: Observation[],
     dpi: BoundingBox,
@@ -132,6 +154,18 @@ const groupProseToParagraphs = (textLines: TextBlock[], verticalJumpFactor: numb
     return result;
 };
 
+/**
+ * Groups text lines into coherent paragraphs, handling both prose and poetry.
+ *
+ * Prose lines are grouped into paragraphs based on vertical spacing and line width patterns.
+ * Poetic lines are preserved individually to maintain their formatting.
+ * Processes body content and footnotes separately.
+ *
+ * @param textLines - Array of text lines to group into paragraphs
+ * @param verticalJumpFactor - Factor for detecting paragraph breaks based on vertical spacing (default: 2)
+ * @param widthTolerance - Threshold for identifying "short" lines that indicate paragraph breaks (default: 0.85)
+ * @returns Array of text blocks representing complete paragraphs
+ */
 export const mapTextLinesToParagraphs = (textLines: TextBlock[], verticalJumpFactor = 2, widthTolerance = 0.85) => {
     const bodyBlocks: TextBlock[] = groupProseToParagraphs(
         textLines.filter((t) => !t.isFootnote),

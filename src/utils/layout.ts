@@ -72,6 +72,17 @@ export const filterHorizontalLinesOutsideRectangles = (
     });
 };
 
+/**
+ * Finds the y-coordinate of the last horizontal line that's not contained within any rectangle.
+ *
+ * Used to identify the footer boundary - text below this line is typically footnotes.
+ * Filters out horizontal lines that are contained within rectangles before finding the last one.
+ *
+ * @param rectangles - Array of rectangles to exclude horizontal lines from
+ * @param horizontalLines - Array of horizontal lines to consider
+ * @param pixelTolerance - Pixel tolerance for containment checking (default: 5)
+ * @returns Y-coordinate of the last qualifying horizontal line, or undefined if none found
+ */
 export const getLastHorizontalLineY = (
     rectangles: BoundingBox[],
     horizontalLines: BoundingBox[],

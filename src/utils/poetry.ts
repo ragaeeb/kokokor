@@ -4,7 +4,16 @@ import { MAX_PROSE_WORD_COUNT } from './constants';
 import { isObservationCentered } from './layout';
 
 /**
- * Enhanced prose density calculation with better filtering and error handling
+ * Calculates the average word density (words per pixel) for prose text in the document.
+ *
+ * Filters observations to identify likely prose content by excluding centered text,
+ * very narrow text, and text with too few or too many words. Used as a baseline
+ * for poetry detection algorithms.
+ *
+ * @param observations - Array of text observations to analyze
+ * @param imageWidth - Total width of the document/image in pixels
+ * @param options - Configuration options for prose identification
+ * @returns Average word density (words per pixel) for prose content, or 0 if no prose found
  */
 export const calculateAverageProseDensity = (
     observations: Observation[],
@@ -100,6 +109,19 @@ const isWidePoeticLine = (
     return false;
 };
 
+/**
+ * Determines if a group of observations represents poetic content.
+ *
+ * For single observations, checks if it's a wide poetic line (centered with low word density).
+ * For pairs of observations, validates them as poetry hemistichs based on width similarity,
+ * word count similarity, and overall centering.
+ *
+ * @param group - Array of observations to analyze (typically 1-2 items)
+ * @param imageWidth - Total width of the document/image in pixels
+ * @param avgProseWordDensity - Average word density of prose content for comparison
+ * @param options - Poetry detection configuration options
+ * @returns True if the group represents poetic content
+ */
 export const isPoeticGroup = (
     group: Observation[],
     imageWidth: number,
