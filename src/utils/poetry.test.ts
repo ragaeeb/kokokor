@@ -150,7 +150,33 @@ describe('poetry', () => {
     });
 
     describe('isPoetryPair', () => {
-        it('should be true pairs that are not completely centered but have a large gap in between while having a small word count for poetry', () => {
+        it('should be true for evenly spaced poetry pair', () => {
+            const actual = isPoetryPair(
+                {
+                    bbox: {
+                        height: 194,
+                        width: 1809,
+                        x: 591,
+                        y: 1192,
+                    },
+                    text: 'ومهما ترى من شهوة بشرية',
+                },
+                {
+                    bbox: {
+                        height: 307,
+                        width: 1793,
+                        x: 2672,
+                        y: 1098,
+                    },
+                    text: 'لطبع، وإيثار لحقِّ تعاطاه',
+                },
+                4959,
+            );
+
+            expect(actual).toBeTrue();
+        });
+
+        it('should be true for pairs that are not completely centered but have a large gap in between while having a small word count for poetry', () => {
             const actual = isPoetryPair(
                 {
                     bbox: {

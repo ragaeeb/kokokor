@@ -96,6 +96,8 @@ export const getLastHorizontalLineY = (
         horizontalLines = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
     }
 
+    horizontalLines = horizontalLines.filter((line) => line.y > pixelTolerance); // take out lines that are very close to the top-edge which are probably artifacts
+
     return horizontalLines.at(-1)?.y;
 };
 

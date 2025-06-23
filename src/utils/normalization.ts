@@ -51,7 +51,7 @@ export const mapOcrResultToRTLObservations = (observations: Observation[], image
  * // Result: Only "Hello world" observation remains
  * ```
  */
-export const filterNoisyObservations = (o: Observation) => o.text?.length > 1;
+export const filterNoisyObservations = (o: Observation) => o.text?.replace(/[،,؛;؟?۔.:\-()]/g, '').length > 1;
 
 /**
  * Normalizes x-coordinates of observations to create clean alignment.

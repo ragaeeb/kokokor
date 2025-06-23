@@ -98,9 +98,13 @@ export const isPoetryPair = (
 
     // A gap is considered significant if it's large relative to the page width OR the text width.
     // This allows for more flexible detection of visually separated hemistichs.
-    const hasSignificantGap = gap > imageWidth * 0.07 || gap > avgWidth * 0.25;
+    const hasSignificantGap = gap > imageWidth * 0.07 || gap > avgWidth * 0.15;
     const centeringOptions = hasSignificantGap
-        ? { ...options, centerToleranceRatio: options.centerToleranceRatio * 2.5 }
+        ? {
+              ...options,
+              centerToleranceRatio: options.centerToleranceRatio * 2.5,
+              minMarginRatio: options.minMarginRatio * 0.75,
+          }
         : options;
 
     // Check if the pair as a whole is centered using the determined options.

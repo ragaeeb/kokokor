@@ -229,6 +229,28 @@ describe('layout', () => {
             expect(result).toBe(400);
         });
 
+        it('should filter out artifacts that are very low y-coordinates', () => {
+            const result = getLastHorizontalLineY(
+                [],
+                [
+                    {
+                        height: 5,
+                        width: 1221,
+                        x: 2463,
+                        y: 31,
+                    },
+                    {
+                        height: 10,
+                        width: 1227,
+                        x: 2460,
+                        y: 4,
+                    },
+                ],
+            );
+
+            expect(result).toEqual(31);
+        });
+
         it('should return undefined when no horizontal lines exist', () => {
             const rectangles = [{ height: 100, width: 200, x: 100, y: 100 }];
             const horizontalLines = [];
