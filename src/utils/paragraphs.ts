@@ -4,7 +4,12 @@ import { DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS, DEFAULT_POETRY_OPTIONS } fr
 import { groupByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './grouping';
 import { getLastHorizontalLineY, isBoundingBoxContained, isObservationCentered } from './layout';
 import { indexItemsAsLines, indexItemsAsParagraphs } from './marking';
-import { filterNoisyObservations, mapOcrResultToRTLObservations, normalizeObservationsX } from './normalization';
+import {
+    filterNoisyObservations,
+    mapOcrResultToRTLObservations,
+    normalizeObservationsX,
+    simplifyObservations,
+} from './normalization';
 import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
 
 /**
@@ -111,6 +116,15 @@ export const mapObservationsToTextLines = (
     }
 
     groups = sortGroupsHorizontally(groups);
+
+    if (options.log) {
+        options.log(
+            'isPoeticGroup',
+            groups.map((g) => simplifyObservations(g)),
+            avgProseWordDensity,
+            options.poetryDetectionOptions,
+        );
+    }
 
     for (const group of groups) {
         if (isPoeticGroup(group, dpi.width, avgProseWordDensity, options.poetryDetectionOptions!)) {

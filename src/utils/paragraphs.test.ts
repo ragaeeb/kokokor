@@ -118,7 +118,7 @@ describe('paragraphs', () => {
                 },
             ]);
 
-            expect(log).toHaveBeenCalledTimes(4);
+            expect(log).toHaveBeenCalledTimes(5);
         });
 
         it('should map the observation as a footnote', () => {

@@ -51,7 +51,7 @@ export const mapOcrResultToRTLObservations = (observations: Observation[], image
  * // Result: Only "Hello world" observation remains
  * ```
  */
-export const filterNoisyObservations = (o: Observation) => o.text?.length > 1;
+export const filterNoisyObservations = (o: Observation) => o.text?.replace(/[،,؛;؟?۔.:\-()]/g, '').length > 1;
 
 /**
  * Normalizes x-coordinates of observations to create clean alignment.
@@ -123,18 +123,22 @@ export const normalizeObservationsX = (observations: Observation[], dpi: number,
  * // }
  * ```
  */
-export const simplifyObservation = (observation: Observation): Observation => {
-    return {
-        bbox: {
-            height: Math.trunc(observation.bbox.height),
-            width: Math.trunc(observation.bbox.width),
-            x: Math.trunc(observation.bbox.x),
-            y: Math.trunc(observation.bbox.y),
-        },
-        text: observation.text
-            .split(' ')
-            .filter((word) => word.length > 1)
-            .slice(0, 1)
-            .join(' '),
-    };
+export const simplifyObservations = (observations: Observation[], truncateText = false): Observation[] => {
+    return observations.map((observation) => {
+        return {
+            bbox: {
+                height: Math.trunc(observation.bbox.height),
+                width: Math.trunc(observation.bbox.width),
+                x: Math.trunc(observation.bbox.x),
+                y: Math.trunc(observation.bbox.y),
+            },
+            text: truncateText
+                ? observation.text
+                      .split(' ')
+                      .filter((word) => word.length > 1)
+                      .slice(0, 1)
+                      .join(' ')
+                : observation.text,
+        };
+    });
 };

@@ -1,6 +1,6 @@
 import type { Observation, PoetryDetectionOptions } from '@/types';
 
-import { MAX_PROSE_WORD_COUNT } from './constants';
+import { DEFAULT_POETRY_OPTIONS, MAX_PROSE_WORD_COUNT, PROSE_PUNCTUATION_PATTERN } from './constants';
 import { isObservationCentered } from './layout';
 
 /**
@@ -24,7 +24,10 @@ import { isObservationCentered } from './layout';
 export const calculateAverageProseDensity = (
     observations: Observation[],
     imageWidth: number,
-    options: Pick<PoetryDetectionOptions, 'centerToleranceRatio' | 'minMarginRatio' | 'minWordCount'>,
+    options: Pick<
+        PoetryDetectionOptions,
+        'centerToleranceRatio' | 'minMarginRatio' | 'minWordCount'
+    > = DEFAULT_POETRY_OPTIONS,
 ): number => {
     let totalWords = 0;
     let totalWidth = 0;
@@ -65,11 +68,11 @@ export const calculateAverageProseDensity = (
  * @param options - Poetry detection configuration options
  * @returns True if the observations form a valid poetry pair
  */
-const isPoetryPair = (
+export const isPoetryPair = (
     obs1: Observation,
     obs2: Observation,
     imageWidth: number,
-    options: PoetryDetectionOptions,
+    options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ): boolean => {
     const words1 = obs1.text.split(' ').length;
     const words2 = obs2.text.split(' ').length;
@@ -87,7 +90,24 @@ const isPoetryPair = (
     const wordCountDiffRatio = Math.abs(words1 - words2) / maxWords;
     if (wordCountDiffRatio >= options.pairWordCountSimilarityRatio) return false;
 
-    // Check if the pair as a whole is centered
+    // For pairs (hemistichs), the centering can be less strict, especially if
+    // there is a clear visual gap separating them, which is a common poetic layout.
+    const leftObs = obs1.bbox.x < obs2.bbox.x ? obs1 : obs2;
+    const rightObs = obs1.bbox.x < obs2.bbox.x ? obs2 : obs1;
+    const gap = rightObs.bbox.x - (leftObs.bbox.x + leftObs.bbox.width);
+
+    // A gap is considered significant if it's large relative to the page width OR the text width.
+    // This allows for more flexible detection of visually separated hemistichs.
+    const hasSignificantGap = gap > imageWidth * 0.07 || gap > avgWidth * 0.15;
+    const centeringOptions = hasSignificantGap
+        ? {
+              ...options,
+              centerToleranceRatio: options.centerToleranceRatio * 2.5,
+              minMarginRatio: options.minMarginRatio * 0.75,
+          }
+        : options;
+
+    // Check if the pair as a whole is centered using the determined options.
     const leftX = Math.min(obs1.bbox.x, obs2.bbox.x);
     const rightmostPoint = Math.max(obs1.bbox.x + obs1.bbox.width, obs2.bbox.x + obs2.bbox.width);
     const combinedBbox = {
@@ -98,7 +118,8 @@ const isPoetryPair = (
         x: leftX,
         y: Math.min(obs1.bbox.y, obs2.bbox.y),
     };
-    return isObservationCentered(combinedBbox, imageWidth, options);
+
+    return isObservationCentered(combinedBbox, imageWidth, centeringOptions);
 };
 
 /**
@@ -121,11 +142,11 @@ const isPoetryPair = (
  * @param options - Poetry detection configuration options
  * @returns True if the observation represents a wide poetic line
  */
-const isWidePoeticLine = (
+export const isWidePoeticLine = (
     obs: Observation,
     imageWidth: number,
     avgProseWordDensity: number,
-    options: PoetryDetectionOptions,
+    options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ) => {
     const wordCount = obs.text.split(' ').length;
 
@@ -133,16 +154,42 @@ const isWidePoeticLine = (
         return false;
     }
 
+    // Heuristic: Prose lines often contain punctuation like commas or parentheses,
+    // which are less common in single, distinct lines of poetry. This helps filter
+    // out wide prose that might otherwise be misidentified. Footnotes within pairs
+    // like "text (1)" are handled by the isPoetryPair logic, so this check is
+    // safe for single-line analysis.
+    if (PROSE_PUNCTUATION_PATTERN.test(obs.text)) {
+        return false;
+    }
+
     if (!isObservationCentered(obs.bbox, imageWidth, options)) {
         return false;
     }
 
+    // minWidthRatioForMerged is 0.6 by default
     if (obs.bbox.width > imageWidth * options.minWidthRatioForMerged) {
-        const obsDensity = wordCount / obs.bbox.width;
-        const densityThreshold = avgProseWordDensity * options.wordDensityComparisonRatio;
+        // Only perform density comparison if we have a reliable prose baseline
+        if (avgProseWordDensity <= 0) {
+            return false;
+        }
 
-        if (obsDensity < densityThreshold && obsDensity > 0) {
-            return true;
+        const obsDensity = wordCount / obs.bbox.width;
+
+        // The observation density should be notably lower than prose density.
+        if (obsDensity > 0) {
+            const densityRatio = obsDensity / avgProseWordDensity;
+
+            // To prevent false positives from prose, the density check is tiered. The
+            // original threshold for very wide lines was too lenient. This version
+            // tightens it slightly, which works well in combination with the
+            // punctuation heuristic above.
+            const widthRatio = obs.bbox.width / imageWidth;
+            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio * 0.95 : 0.5;
+
+            if (densityRatio < requiredDensityRatio) {
+                return true;
+            }
         }
     }
 
@@ -175,7 +222,7 @@ export const isPoeticGroup = (
     group: Observation[],
     imageWidth: number,
     avgProseWordDensity: number,
-    options: PoetryDetectionOptions,
+    options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ) => {
     if (group.length === 1) {
         return isWidePoeticLine(group[0], imageWidth, avgProseWordDensity, options);

@@ -1,4 +1,4 @@
-import type { BoundingBox, CenteringOptions, Observation } from '@/types';
+import type { BoundingBox, CenteringOptions } from '@/types';
 
 /**
  * Determines if an observation is centered on the page with sufficient whitespace around it.
@@ -95,6 +95,8 @@ export const getLastHorizontalLineY = (
     if (rectangles.length > 0 && horizontalLines.length > 0) {
         horizontalLines = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
     }
+
+    horizontalLines = horizontalLines.filter((line) => line.y > pixelTolerance); // take out lines that are very close to the top-edge which are probably artifacts
 
     return horizontalLines.at(-1)?.y;
 };
