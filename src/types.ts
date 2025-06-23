@@ -111,7 +111,7 @@ export type MapObservationsToTextLinesOptions = CenteringOptions & {
      * If not provided, default poetry detection settings will be used.
      * Set to null or undefined to disable poetry detection entirely.
      */
-    poetryDetectionOptions?: PoetryDetectionOptions;
+    poetryDetectionOptions?: Partial<PoetryDetectionOptions>;
 
     /**
      * Optional array of rectangular elements detected in the document.
@@ -157,7 +157,7 @@ export type Observation = {
  * These options allow fine-tuning of each heuristic to balance precision and recall
  * for different types of documents and poetry styles.
  */
-export type PoetryDetectionOptions = CenteringOptions & {
+export type PoetryDetectionOptions = Partial<CenteringOptions> & {
     /**
      * Maximum allowed vertical gap between observations to be considered a poetry pair.
      * This controls how close two lines must be to be considered hemistichs (halves of a verse).
@@ -182,7 +182,7 @@ export type PoetryDetectionOptions = CenteringOptions & {
      *
      * @default 0.6 (60% of image width)
      */
-    minWidthRatioForMerged: number;
+    minWidthRatioForMerged: null | number;
 
     /**
      * The minimum number of words a line must contain to be considered poetry.

@@ -224,7 +224,7 @@ export const isPoeticGroup = (
     avgProseWordDensity: number,
     options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ) => {
-    if (group.length === 1) {
+    if (group.length === 1 && options.minWidthRatioForMerged !== null) {
         return isWidePoeticLine(group[0], imageWidth, avgProseWordDensity, options);
     }
 

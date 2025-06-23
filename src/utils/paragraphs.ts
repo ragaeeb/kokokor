@@ -1,4 +1,10 @@
-import type { BoundingBox, MapObservationsToTextLinesOptions, Observation, TextBlock } from '@/types';
+import type {
+    BoundingBox,
+    MapObservationsToTextLinesOptions,
+    Observation,
+    PoetryDetectionOptions,
+    TextBlock,
+} from '@/types';
 
 import { DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS, DEFAULT_POETRY_OPTIONS } from './constants';
 import { groupByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './grouping';
@@ -66,8 +72,12 @@ export const mapObservationsToTextLines = (
 ) => {
     const options: MapObservationsToTextLinesOptions = {
         ...DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS,
-        poetryDetectionOptions: DEFAULT_POETRY_OPTIONS,
         ...opts,
+        // Merge poetry options specifically instead of replacing them
+        poetryDetectionOptions: {
+            ...DEFAULT_POETRY_OPTIONS,
+            ...(opts?.poetryDetectionOptions || {}),
+        },
     };
     observations = flipAndAlignObservations(observations, dpi.width, dpi.x, options);
 
@@ -84,7 +94,11 @@ export const mapObservationsToTextLines = (
         options.horizontalLines || [],
         options.pixelTolerance,
     );
-    const avgProseWordDensity = calculateAverageProseDensity(observations, dpi.width, options.poetryDetectionOptions!);
+    const avgProseWordDensity = calculateAverageProseDensity(
+        observations,
+        dpi.width,
+        options.poetryDetectionOptions as PoetryDetectionOptions,
+    );
     const marked = indexItemsAsLines(observations, dpi.y, options.pixelTolerance!, options.lineHeightFactor).map(
         (o) => {
             const e: TextBlock & { index: number } = { ...o };
@@ -127,7 +141,14 @@ export const mapObservationsToTextLines = (
     }
 
     for (const group of groups) {
-        if (isPoeticGroup(group, dpi.width, avgProseWordDensity, options.poetryDetectionOptions!)) {
+        if (
+            isPoeticGroup(
+                group,
+                dpi.width,
+                avgProseWordDensity,
+                options.poetryDetectionOptions as PoetryDetectionOptions,
+            )
+        ) {
             for (const observation of group) {
                 observation.isPoetic = true;
             }
