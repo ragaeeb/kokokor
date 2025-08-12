@@ -71,6 +71,48 @@ export const sortGroupsHorizontally = <T extends { bbox: { x: number } }>(groupe
 };
 
 /**
+ * Merges the group of observations into a single one.
+ * @param group The group of observations to merge.
+ * @returns A single observation with the text of the group concatenated as well as the bounding box adjusted to fit all of the contents.
+ */
+export const mergeObservations = <T extends Observation>(group: T[]): T => {
+    // Initialize with the first observation's values
+    let minX = group[0].bbox.x;
+    let minY = group[0].bbox.y;
+    let maxX = group[0].bbox.x + group[0].bbox.width;
+    let maxY = group[0].bbox.y + group[0].bbox.height;
+
+    // Build the combined text
+    let combinedText = group[0].text;
+
+    // Process the rest of the observations in a single pass
+    for (let i = 1; i < group.length; i++) {
+        const { bbox, text } = group[i];
+
+        // Update bounding box coordinates
+        minX = Math.min(minX, bbox.x);
+        minY = Math.min(minY, bbox.y);
+        maxX = Math.max(maxX, bbox.x + bbox.width);
+        maxY = Math.max(maxY, bbox.y + bbox.height);
+
+        // Append text with space
+        combinedText += ' ' + text;
+    }
+
+    // Create the merged observation, preserving all properties from the first observation
+    return {
+        ...group[0],
+        bbox: {
+            height: maxY - minY,
+            width: maxX - minX,
+            x: minX,
+            y: minY,
+        },
+        text: combinedText,
+    };
+};
+
+/**
  * Merges multiple observations within each group into a single combined observation.
  *
  * For each group, this function performs the following operations:
@@ -110,40 +152,8 @@ export const mergeGroupedObservations = <T extends Observation>(grouped: T[][]) 
             continue;
         }
 
-        // Initialize with the first observation's values
-        let minX = group[0].bbox.x;
-        let minY = group[0].bbox.y;
-        let maxX = group[0].bbox.x + group[0].bbox.width;
-        let maxY = group[0].bbox.y + group[0].bbox.height;
-
-        // Build the combined text
-        let combinedText = group[0].text;
-
-        // Process the rest of the observations in a single pass
-        for (let i = 1; i < group.length; i++) {
-            const { bbox, text } = group[i];
-
-            // Update bounding box coordinates
-            minX = Math.min(minX, bbox.x);
-            minY = Math.min(minY, bbox.y);
-            maxX = Math.max(maxX, bbox.x + bbox.width);
-            maxY = Math.max(maxY, bbox.y + bbox.height);
-
-            // Append text with space
-            combinedText += ' ' + text;
-        }
-
         // Create the merged observation, preserving all properties from the first observation
-        result.push({
-            ...group[0],
-            bbox: {
-                height: maxY - minY,
-                width: maxX - minX,
-                x: minX,
-                y: minY,
-            },
-            text: combinedText,
-        });
+        result.push(mergeObservations(group));
     }
 
     return result;

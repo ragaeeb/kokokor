@@ -27,6 +27,7 @@ export const formatTextBlocks = (textBlocks: TextBlock[], footerSymbol?: string)
 };
 
 export * from './types';
+export { mergeObservations } from './utils/grouping';
 export { filterHorizontalLinesOutsideRectangles, mapMatrixToBoundingBox } from './utils/layout';
 export { calculateDPI } from './utils/marking';
 export { flipAndAlignObservations, mapObservationsToTextLines, mapTextLinesToParagraphs } from './utils/paragraphs';
