@@ -74,6 +74,9 @@ export type MapObservationsToTextLinesOptions = CenteringOptions & {
      */
     horizontalLines?: BoundingBox[];
 
+    /** Are the coordinates from a RTL language? If it is we would flip the x-axis. */
+    isRTL?: boolean;
+
     /**
      * Optional fixed line height factor for grouping observations into lines.
      * If not provided, the system will compute an adaptive factor based on document analysis.

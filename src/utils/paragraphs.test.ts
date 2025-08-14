@@ -38,7 +38,7 @@ describe('paragraphs', () => {
                 ],
                 800,
                 72,
-                { log },
+                { isRTL: true, log },
             );
             expect(result).toEqual([
                 {

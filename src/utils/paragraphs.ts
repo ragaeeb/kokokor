@@ -32,7 +32,7 @@ export const flipAndAlignObservations = (
     observations: Observation[],
     imageWidth: number,
     dpiX: number,
-    options: Pick<MapObservationsToTextLinesOptions, 'log'> = {},
+    options: Partial<Pick<MapObservationsToTextLinesOptions, 'isRTL' | 'log'>> = {},
 ) => {
     observations = observations.filter(filterNoisyObservations);
 
@@ -44,7 +44,9 @@ export const flipAndAlignObservations = (
         options.log('mapOcrResultToRTLObservations', observations, imageWidth);
     }
 
-    observations = mapOcrResultToRTLObservations(observations, imageWidth);
+    if (options.isRTL) {
+        observations = mapOcrResultToRTLObservations(observations, imageWidth);
+    }
 
     if (options.log) {
         options.log('normalizeObservationsX', observations, dpiX);

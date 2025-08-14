@@ -39,6 +39,8 @@ export const DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS: MapObservationsToTextLi
     centerToleranceRatio: 0.05,
     /** Empty array of horizontal lines - will be populated during processing */
     horizontalLines: [],
+    /** By default we will be handling RTL text. */
+    isRTL: true,
     /** Minimum margin of 20% of image width required on each side for centering */
     minMarginRatio: 0.2,
     /** Pixel tolerance of 5 pixels for vertical alignment at 72 DPI */
