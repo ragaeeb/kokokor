@@ -129,6 +129,17 @@ describe('poetry', () => {
             expect(density).toBe(0);
         });
 
+        it('should fall back to defaults when centering tolerances are omitted', () => {
+            const observations = [
+                createObservation('Centered line that should be excluded', 400, 100, 200),
+                createObservation('Wide prose candidate that should remain', 50, 140, 450),
+            ];
+
+            const density = calculateAverageProseDensity(observations, imageWidth, { minWordCount: 2 });
+
+            expect(density).toBeCloseTo(6 / 450, 5);
+        });
+
         it('should handle observations with different minWordCount threshold', () => {
             const observations = [
                 createObservation('This is a normal prose line', 50, 100, 450),

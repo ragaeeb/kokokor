@@ -1,6 +1,14 @@
-import type { Observation, PoetryDetectionOptions } from '@/types';
+import type { CenteringOptions, Observation, PoetryDetectionOptions } from '@/types';
 
 import { DEFAULT_POETRY_OPTIONS, MAX_PROSE_WORD_COUNT, PROSE_PUNCTUATION_PATTERN } from './constants';
+
+const DEFAULT_CENTER_TOLERANCE = DEFAULT_POETRY_OPTIONS.centerToleranceRatio ?? 0.05;
+const DEFAULT_MIN_MARGIN = DEFAULT_POETRY_OPTIONS.minMarginRatio ?? 0.1;
+const DEFAULT_MIN_WIDTH_RATIO_FOR_MERGED = DEFAULT_POETRY_OPTIONS.minWidthRatioForMerged ?? 0.6;
+const DEFAULT_MIN_WORD_COUNT = DEFAULT_POETRY_OPTIONS.minWordCount ?? 2;
+const DEFAULT_PAIR_WIDTH_SIMILARITY = DEFAULT_POETRY_OPTIONS.pairWidthSimilarityRatio ?? 0.4;
+const DEFAULT_PAIR_WORD_SIMILARITY = DEFAULT_POETRY_OPTIONS.pairWordCountSimilarityRatio ?? 0.5;
+const DEFAULT_DENSITY_RATIO = DEFAULT_POETRY_OPTIONS.wordDensityComparisonRatio ?? 0.95;
 import { isObservationCentered } from './layout';
 
 /**
@@ -21,6 +29,11 @@ import { isObservationCentered } from './layout';
  * @param options.minWordCount - Minimum word count threshold for valid prose lines
  * @returns Average word density (words per pixel) for prose content, or 0 if no prose found
  */
+const resolveCenteringOptions = (options?: Partial<CenteringOptions>): CenteringOptions => ({
+    centerToleranceRatio: options?.centerToleranceRatio ?? DEFAULT_CENTER_TOLERANCE,
+    minMarginRatio: options?.minMarginRatio ?? DEFAULT_MIN_MARGIN,
+});
+
 export const calculateAverageProseDensity = (
     observations: Observation[],
     imageWidth: number,
@@ -29,6 +42,8 @@ export const calculateAverageProseDensity = (
         'centerToleranceRatio' | 'minMarginRatio' | 'minWordCount'
     > = DEFAULT_POETRY_OPTIONS,
 ): number => {
+    const centeringOptions = resolveCenteringOptions(options);
+    const minWordCount = options.minWordCount ?? DEFAULT_MIN_WORD_COUNT;
     let totalWords = 0;
     let totalWidth = 0;
 
@@ -37,9 +52,9 @@ export const calculateAverageProseDensity = (
 
         // Enhanced filtering for better prose identification
         const isLikelyProse =
-            !isObservationCentered(obs.bbox, imageWidth, options) &&
+            !isObservationCentered(obs.bbox, imageWidth, centeringOptions) &&
             obs.bbox.width > imageWidth * 0.4 && // Slightly lower threshold
-            wordCount >= options.minWordCount &&
+            wordCount >= minWordCount &&
             wordCount <= MAX_PROSE_WORD_COUNT; // Exclude very long lines that might be corrupted OCR
 
         if (isLikelyProse) {
@@ -74,21 +89,24 @@ export const isPoetryPair = (
     imageWidth: number,
     options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ): boolean => {
+    const minWordCount = options.minWordCount ?? DEFAULT_MIN_WORD_COUNT;
+    const pairWidthSimilarityRatio = options.pairWidthSimilarityRatio ?? DEFAULT_PAIR_WIDTH_SIMILARITY;
+    const pairWordCountSimilarityRatio = options.pairWordCountSimilarityRatio ?? DEFAULT_PAIR_WORD_SIMILARITY;
     const words1 = obs1.text.split(' ').length;
     const words2 = obs2.text.split(' ').length;
 
     // Basic validation
-    if (words1 < options.minWordCount || words2 < options.minWordCount) return false;
+    if (words1 < minWordCount || words2 < minWordCount) return false;
 
     // Check width similarity
     const avgWidth = (obs1.bbox.width + obs2.bbox.width) / 2;
     const widthDiffRatio = Math.abs(obs1.bbox.width - obs2.bbox.width) / avgWidth;
-    if (widthDiffRatio >= options.pairWidthSimilarityRatio) return false;
+    if (widthDiffRatio >= pairWidthSimilarityRatio) return false;
 
     // Check word count similarity
     const maxWords = Math.max(words1, words2);
     const wordCountDiffRatio = Math.abs(words1 - words2) / maxWords;
-    if (wordCountDiffRatio >= options.pairWordCountSimilarityRatio) return false;
+    if (wordCountDiffRatio >= pairWordCountSimilarityRatio) return false;
 
     // For pairs (hemistichs), the centering can be less strict, especially if
     // there is a clear visual gap separating them, which is a common poetic layout.
@@ -101,11 +119,11 @@ export const isPoetryPair = (
     const hasSignificantGap = gap > imageWidth * 0.07 || gap > avgWidth * 0.15;
     const centeringOptions = hasSignificantGap
         ? {
-              ...options,
-              centerToleranceRatio: options.centerToleranceRatio * 2.5,
-              minMarginRatio: options.minMarginRatio * 0.75,
+              ...resolveCenteringOptions(options),
+              centerToleranceRatio: (options.centerToleranceRatio ?? DEFAULT_CENTER_TOLERANCE) * 2.5,
+              minMarginRatio: (options.minMarginRatio ?? DEFAULT_MIN_MARGIN) * 0.75,
           }
-        : options;
+        : resolveCenteringOptions(options);
 
     // Check if the pair as a whole is centered using the determined options.
     const leftX = Math.min(obs1.bbox.x, obs2.bbox.x);
@@ -149,8 +167,10 @@ export const isWidePoeticLine = (
     options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ) => {
     const wordCount = obs.text.split(' ').length;
+    const minWordCount = options.minWordCount ?? DEFAULT_MIN_WORD_COUNT;
+    const wordDensityComparisonRatio = options.wordDensityComparisonRatio ?? DEFAULT_DENSITY_RATIO;
 
-    if (wordCount < options.minWordCount) {
+    if (wordCount < minWordCount) {
         return false;
     }
 
@@ -163,12 +183,14 @@ export const isWidePoeticLine = (
         return false;
     }
 
-    if (!isObservationCentered(obs.bbox, imageWidth, options)) {
+    if (!isObservationCentered(obs.bbox, imageWidth, resolveCenteringOptions(options))) {
         return false;
     }
 
     // minWidthRatioForMerged is 0.6 by default
-    if (obs.bbox.width > imageWidth * options.minWidthRatioForMerged) {
+    const minWidthRatioForMerged = options.minWidthRatioForMerged ?? DEFAULT_MIN_WIDTH_RATIO_FOR_MERGED;
+
+    if (obs.bbox.width > imageWidth * minWidthRatioForMerged) {
         // Only perform density comparison if we have a reliable prose baseline
         if (avgProseWordDensity <= 0) {
             return false;
@@ -185,7 +207,7 @@ export const isWidePoeticLine = (
             // tightens it slightly, which works well in combination with the
             // punctuation heuristic above.
             const widthRatio = obs.bbox.width / imageWidth;
-            const requiredDensityRatio = widthRatio > 0.75 ? options.wordDensityComparisonRatio * 0.95 : 0.5;
+            const requiredDensityRatio = widthRatio > 0.75 ? wordDensityComparisonRatio * 0.95 : 0.5;
 
             if (densityRatio < requiredDensityRatio) {
                 return true;
@@ -224,8 +246,15 @@ export const isPoeticGroup = (
     avgProseWordDensity: number,
     options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ) => {
-    if (group.length === 1 && options.minWidthRatioForMerged !== null) {
-        return isWidePoeticLine(group[0], imageWidth, avgProseWordDensity, options);
+    const minWidthRatioForMerged = options.minWidthRatioForMerged ?? DEFAULT_MIN_WIDTH_RATIO_FOR_MERGED;
+
+    if (group.length === 1 && minWidthRatioForMerged !== null) {
+        return isWidePoeticLine(
+            group[0],
+            imageWidth,
+            avgProseWordDensity,
+            { ...options, minWidthRatioForMerged },
+        );
     }
 
     if (group.length === 2) {
