@@ -23,10 +23,12 @@ A lightweight TypeScript library designed to reconstruct paragraphs from OCRed i
 - **Poetry detection and preservation** using multiple heuristics (centering, word density, hemistichs)
 - **Layout structure recognition** including headings (rectangles), footnotes (below horizontal lines)
 - **Coordinate normalization** ensuring consistent results regardless of source document resolution
+- **Line spacing analytics** with DPI-aware thresholds and adaptive line height factors
 - **Surya OCR integration** with format conversion utilities
 - **Noise filtering** to remove OCR artifacts and improve text quality
 - **Customizable parameters** for different document types and languages
 - **Comprehensive text block metadata** including centering, heading, footnote, and poetry flags
+- **Biome formatting and tsdown builds** powered by the published CLIs for a predictable developer workflow
 
 ## Installation
 
@@ -198,6 +200,18 @@ Formats an array of text blocks into a readable string with proper paragraph bre
 
 Preprocesses observations by filtering noise, flipping coordinates for RTL text, and normalizing x-coordinates for proper alignment.
 
+#### `filterHorizontalLinesOutsideRectangles(rectangles: BoundingBox[], horizontalLines: BoundingBox[], tolerance?: number): BoundingBox[]`
+
+Filters out horizontal lines that are contained within any of the provided rectangles so that boundary detection ignores headings and callouts.
+
+#### `getLastHorizontalLineY(rectangles: BoundingBox[], horizontalLines: BoundingBox[], pixelTolerance?: number): number | undefined`
+
+Returns the lowest horizontal separator that is not covered by any rectangles, helping footnote detection routines understand where the body text ends.
+
+#### `isObservationCentered(bbox: BoundingBox, imageWidth: number, options: CenteringOptions): boolean`
+
+Determines if an observation is centered with sufficient whitespace on both sides using DPI-relative tolerances.
+
 #### `mapMatrixToBoundingBox(box: [number, number, number, number]): BoundingBox`
 
 Converts bounding box coordinates from array format to object format.
@@ -206,9 +220,17 @@ Converts bounding box coordinates from array format to object format.
 
 Calculates the DPI based on image size and original PDF size.
 
-#### `filterHorizontalLinesOutsideRectangles(rectangles: BoundingBox[], horizontalLines: BoundingBox[], tolerance?: number): BoundingBox[]`
+#### `calculateAverageProseDensity(observations: Observation[], imageWidth: number, options?: Partial<PoetryDetectionOptions>): number`
 
-Filters out horizontal lines that are contained within any of the provided rectangles.
+Computes the baseline words-per-pixel density for prose lines so poetry heuristics can compare spacing and detect verse structures.
+
+#### `isPoeticGroup(group: Observation[], imageWidth: number, avgProseWordDensity: number, options?: PoetryDetectionOptions): boolean`
+
+Classifies a group of observations as poetry by inspecting hemistich pairs, centered layout, and density ratios.
+
+#### `computeAdaptiveLineHeightFactor(heights: number[], typicalGap: number): number`
+
+Derives a multiplier that scales acceptable line gaps based on measured heights and spacing statistics.
 
 ### Types
 
@@ -243,14 +265,21 @@ type BoundingBox = {
 };
 ```
 
+#### `CenteringOptions`
+
+```typescript
+type CenteringOptions = {
+    centerToleranceRatio: number; // Ratio of page width tolerated when checking centering
+    minMarginRatio: number; // Minimum whitespace on each side expressed as a page-width ratio
+};
+```
+
 #### `MapObservationsToTextLinesOptions`
 
 ```typescript
-type MapObservationsToTextLinesOptions = {
+type MapObservationsToTextLinesOptions = CenteringOptions & {
     pixelTolerance?: number; // Default: 5
     lineHeightFactor?: number; // Optional fixed line height factor
-    centerToleranceRatio?: number; // Default: 0.05
-    minMarginRatio?: number; // Default: 0.2
     poetryDetectionOptions?: PoetryDetectionOptions;
     horizontalLines?: BoundingBox[]; // For footnote detection
     rectangles?: BoundingBox[]; // For heading detection
@@ -261,11 +290,9 @@ type MapObservationsToTextLinesOptions = {
 #### `PoetryDetectionOptions`
 
 ```typescript
-type PoetryDetectionOptions = {
-    centerToleranceRatio: number; // Default: 0.05
-    minMarginRatio: number; // Default: 0.1
+type PoetryDetectionOptions = Partial<CenteringOptions> & {
     maxVerticalGapRatio: number; // Default: 2.0
-    minWidthRatioForMerged: number; // Default: 0.6
+    minWidthRatioForMerged: number | null; // Default: 0.6
     minWordCount: number; // Default: 2
     pairWidthSimilarityRatio: number; // Default: 0.4
     pairWordCountSimilarityRatio: number; // Default: 0.5
@@ -336,6 +363,14 @@ WRITE_SNAPSHOTS=true ONLY="complex-document.jpg,simple-text.jpg" bun test
 # Quick test of a single file during development
 ONLY="debug-case.jpg" bun test
 ```
+
+## Development
+
+| Command | Purpose |
+| --- | --- |
+| `bun run lint` | Applies the Biome configuration (via Bun's formatter) to keep the codebase consistent. |
+| `bun run build` | Bundles the library with the published tsdown CLI, emitting ESM output and type declarations to `dist/`. |
+| `bun test` | Executes the Bun-powered unit test suite, including layout utility coverage. |
 
 ## Contributing
 

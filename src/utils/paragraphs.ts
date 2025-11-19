@@ -160,6 +160,14 @@ export const mapObservationsToTextLines = (
     return mergeGroupedObservations(groups) as TextBlock[];
 };
 
+/**
+ * Collapses consecutive prose lines into paragraphs while preserving poetry blocks.
+ *
+ * @param textLines - The ordered text lines to group.
+ * @param verticalJumpFactor - Factor that determines when a vertical gap indicates a new paragraph.
+ * @param widthTolerance - Threshold for identifying short lines that should terminate a paragraph.
+ * @returns Text blocks that represent merged prose paragraphs alongside untouched poetry lines.
+ */
 const groupProseToParagraphs = (textLines: TextBlock[], verticalJumpFactor: number, widthTolerance: number) => {
     const result: TextBlock[] = [];
     const current: TextBlock[] = [];
