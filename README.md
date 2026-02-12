@@ -123,6 +123,7 @@ const options = {
         pairWordCountSimilarityRatio: 0.5, // Word count similarity for poetry pairs
         wordDensityComparisonRatio: 0.95, // Density comparison for wide poetry lines
     },
+    poetryPairDelimiter: ' ... ', // Delimiter when merging hemistich pairs
 
     // Layout structure (optional)
     horizontalLines: [], // Array of horizontal line bounding boxes for footnote detection
@@ -206,11 +207,11 @@ Groups observations into lines based on vertical proximity, applies centering de
 
 - **Parameters:**
     - `observations`: Array of OCR text observations
-    - `dpi`: Document DPI information including width and height
+    - `page`: Page dimensions and DPI information
     - `options`: Configuration options for text line processing
 - **Returns:** Array of text blocks with metadata (centering, headings, footnotes, poetry)
 
-#### `mapTextLinesToParagraphs(textLines: TextBlock[], options?: Partial<ParagraphOptions>): TextBlock[]`
+#### `mapTextLinesToParagraphs(textLines: TextBlock[], options?: ParagraphOptions): TextBlock[]`
 
 Groups text lines into coherent paragraphs, handling both prose and poetry.
 
@@ -318,6 +319,7 @@ type MapObservationsToTextLinesOptions = CenteringOptions & {
     pixelTolerance?: number; // Default: 5
     lineHeightFactor?: number; // Optional fixed line height factor
     poetryDetectionOptions?: PoetryDetectionOptions;
+    poetryPairDelimiter?: string; // Default: " "
     horizontalLines?: BoundingBox[]; // For footnote detection
     rectangles?: BoundingBox[]; // For heading detection
     log?: (message: string, ...args: any[]) => void; // Debug logging

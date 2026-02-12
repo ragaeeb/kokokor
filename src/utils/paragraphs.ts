@@ -8,7 +8,7 @@ import type {
 } from '@/types';
 
 import { DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS, DEFAULT_POETRY_OPTIONS } from './constants';
-import { groupByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './grouping';
+import { groupByIndex, mergeGroupedObservations, mergeObservations, sortGroupsHorizontally } from './grouping';
 import { getLastHorizontalLineY, isBoundingBoxContained, isObservationCentered } from './layout';
 import { indexItemsAsLines, indexItemsAsParagraphs } from './marking';
 import {
@@ -26,6 +26,9 @@ const DEFAULT_PARAGRAPH_OPTIONS: ResolvedParagraphOptions = {
     verticalJumpFactor: 2,
     widthTolerance: 0.85,
 };
+
+const isPoetryPairGroup = (group: (Observation & { isPoetic?: boolean })[]) =>
+    group.length === 2 && group.every((item) => item.isPoetic);
 
 /**
  * Preprocesses observations by filtering noise, flipping coordinates for RTL text,
@@ -168,7 +171,16 @@ export const mapObservationsToTextLines = (
         }
     }
 
-    return mergeGroupedObservations(groups) as TextBlock[];
+    const merged = groups.map((group) => {
+        if (group.length === 1) {
+            return group[0];
+        }
+
+        const delimiter = isPoetryPairGroup(group) ? (options.poetryPairDelimiter ?? ' ') : ' ';
+        return mergeObservations(group, delimiter);
+    });
+
+    return merged as TextBlock[];
 };
 
 /**
