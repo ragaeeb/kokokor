@@ -158,6 +158,39 @@ describe('poetry', () => {
             // Only first and third observations should count (6 + 3 words, 450 + 420 width)
             expect(density).toBeCloseTo(9 / 870, 5);
         });
+
+        it('should count words robustly with multiple spaces, NBSP, and tatweel', () => {
+            const observations = [createObservation('alpha\u00A0\u00A0beta   بــــيت   gamma', 50, 100, 450)];
+
+            const density = calculateAverageProseDensity(observations, imageWidth, {
+                centerToleranceRatio: 0.05,
+                minMarginRatio: 0.1,
+                minWordCount: 2,
+            });
+
+            expect(density).toBeCloseTo(4 / 450, 5);
+        });
+
+        it('should use shared word count consistently in prose density and pair checks', () => {
+            const proseDensity = calculateAverageProseDensity(
+                [createObservation('alpha   beta', 50, 100, 450)],
+                imageWidth,
+                {
+                    centerToleranceRatio: 0.05,
+                    minMarginRatio: 0.1,
+                    minWordCount: 3,
+                },
+            );
+            const pair = isPoetryPair(
+                createObservation('alpha   beta', 300, 100, 180),
+                createObservation('gamma delta epsilon', 520, 100, 180),
+                imageWidth,
+                { ...DEFAULT_POETRY_OPTIONS, minWordCount: 3 },
+            );
+
+            expect(proseDensity).toBe(0);
+            expect(pair).toBeFalse();
+        });
     });
 
     describe('isPoetryPair', () => {
@@ -237,6 +270,47 @@ describe('poetry', () => {
             );
 
             expect(actual).toBeTrue();
+        });
+
+        it('should reject poetry pair when vertical center gap exceeds maxVerticalGapRatio', () => {
+            const actual = isPoetryPair(
+                createObservation('alpha beta gamma', 300, 100, 180, 20),
+                createObservation('delta epsilon zeta', 520, 300, 180, 20),
+                imageWidth,
+            );
+
+            expect(actual).toBeFalse();
+        });
+
+        it('should accept poetry pair near vertical gap boundary', () => {
+            const actual = isPoetryPair(
+                createObservation('alpha beta gamma', 300, 100, 180, 20),
+                createObservation('delta epsilon zeta', 520, 139, 180, 20),
+                imageWidth,
+            );
+
+            expect(actual).toBeTrue();
+        });
+
+        it('should reject pair when left chunk is numeric-only (ToC-like)', () => {
+            const actual = isPoetryPair(
+                createObservation('(١٢)', 300, 100, 120, 20),
+                createObservation('الفصل', 600, 100, 120, 20),
+                imageWidth,
+                { ...DEFAULT_POETRY_OPTIONS, minWordCount: 1 },
+            );
+
+            expect(actual).toBeFalse();
+        });
+
+        it('should reject asymmetric cross-column-like pair under relaxed centering', () => {
+            const actual = isPoetryPair(
+                createObservation('short text', 75, 100, 100, 20),
+                createObservation('other words', 700, 100, 120, 20),
+                imageWidth,
+            );
+
+            expect(actual).toBeFalse();
         });
     });
 
@@ -887,6 +961,17 @@ describe('poetry', () => {
     });
 
     describe('isWidePoeticLine', () => {
+        it('should keep punctuation-reject behavior unchanged for wide single-line poetry', () => {
+            const actual = isWidePoeticLine(
+                createObservation('بيت، شعري جميل', 200, 100, 600),
+                imageWidth,
+                0.02,
+                DEFAULT_POETRY_OPTIONS,
+            );
+
+            expect(actual).toBeFalse();
+        });
+
         it('should be an empty list for an introduction page which is only composed of prose paragraphs', () => {
             const prose = [
                 {

@@ -47,6 +47,8 @@ export const DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS: MapObservationsToTextLi
     pixelTolerance: 5,
     /** Default poetry detection options */
     poetryDetectionOptions: DEFAULT_POETRY_OPTIONS,
+    /** Default delimiter for merged poetry pairs (hemistichs) */
+    poetryPairDelimiter: ' ',
     /** Empty array of rectangles - will be populated during processing */
     rectangles: [],
 } as const;

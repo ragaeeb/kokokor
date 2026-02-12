@@ -11,6 +11,13 @@ const DEFAULT_MIN_WORD_COUNT = DEFAULT_POETRY_OPTIONS.minWordCount ?? 2;
 const DEFAULT_PAIR_WIDTH_SIMILARITY = DEFAULT_POETRY_OPTIONS.pairWidthSimilarityRatio ?? 0.4;
 const DEFAULT_PAIR_WORD_SIMILARITY = DEFAULT_POETRY_OPTIONS.pairWordCountSimilarityRatio ?? 0.5;
 const DEFAULT_DENSITY_RATIO = DEFAULT_POETRY_OPTIONS.wordDensityComparisonRatio ?? 0.95;
+const DEFAULT_MAX_VERTICAL_GAP_RATIO = DEFAULT_POETRY_OPTIONS.maxVerticalGapRatio ?? 2.0;
+
+const NBSP_PATTERN = /\u00A0/g;
+const TATWEEL_PATTERN = /\u0640/g;
+const NON_WHITESPACE_PATTERN = /\S+/g;
+const STRIP_PUNCTUATION_SYMBOLS_AND_SPACE_PATTERN = /[\p{P}\p{S}\s]+/gu;
+const ARABIC_OR_LATIN_DIGITS_PATTERN = /^[\d\u0660-\u0669]+$/;
 
 /**
  * Calculates the average word density (words per pixel) for prose text in the document.
@@ -39,7 +46,98 @@ const resolveCenteringOptions = (options?: Partial<CenteringOptions>) =>
         options,
     );
 
-const getWordCount = (text: string) => text.split(' ').length;
+const getWordCount = (text: string) => {
+    const normalized = text.replace(NBSP_PATTERN, ' ').replace(TATWEEL_PATTERN, '').trim();
+    if (!normalized) {
+        return 0;
+    }
+
+    return normalized.match(NON_WHITESPACE_PATTERN)?.length ?? 0;
+};
+
+const isNumericOnlyToken = (text: string) => {
+    const stripped = text
+        .replace(NBSP_PATTERN, ' ')
+        .replace(TATWEEL_PATTERN, '')
+        .replace(STRIP_PUNCTUATION_SYMBOLS_AND_SPACE_PATTERN, '');
+
+    return stripped.length > 0 && ARABIC_OR_LATIN_DIGITS_PATTERN.test(stripped);
+};
+
+const hasCompatiblePairWidths = (obs1: Observation, obs2: Observation, pairWidthSimilarityRatio: number) => {
+    const avgWidth = (obs1.bbox.width + obs2.bbox.width) / 2;
+    const widthDiffRatio = Math.abs(obs1.bbox.width - obs2.bbox.width) / avgWidth;
+
+    return { avgWidth, isCompatible: widthDiffRatio < pairWidthSimilarityRatio };
+};
+
+const hasCompatibleWordCounts = (words1: number, words2: number, pairWordCountSimilarityRatio: number) => {
+    const maxWords = Math.max(words1, words2);
+    const wordCountDiffRatio = Math.abs(words1 - words2) / maxWords;
+
+    return wordCountDiffRatio < pairWordCountSimilarityRatio;
+};
+
+const hasCompatibleVerticalGap = (obs1: Observation, obs2: Observation, maxVerticalGapRatio: number) => {
+    const centerY1 = obs1.bbox.y + obs1.bbox.height / 2;
+    const centerY2 = obs2.bbox.y + obs2.bbox.height / 2;
+    const dy = Math.abs(centerY1 - centerY2);
+    const avgHeight = (obs1.bbox.height + obs2.bbox.height) / 2;
+
+    return dy <= maxVerticalGapRatio * avgHeight;
+};
+
+const getOrderedPairObservations = (obs1: Observation, obs2: Observation) => {
+    const leftObs = obs1.bbox.x < obs2.bbox.x ? obs1 : obs2;
+    const rightObs = obs1.bbox.x < obs2.bbox.x ? obs2 : obs1;
+    const gap = rightObs.bbox.x - (leftObs.bbox.x + leftObs.bbox.width);
+
+    return { gap, leftObs, rightObs };
+};
+
+const hasAsymmetricSparseGap = (
+    leftObs: Observation,
+    rightObs: Observation,
+    gap: number,
+    avgWidth: number,
+    imageWidth: number,
+) => {
+    const pageCenter = imageWidth / 2;
+    const innerLeft = leftObs.bbox.x + leftObs.bbox.width;
+    const innerRight = rightObs.bbox.x;
+    const leftDelta = Math.abs(pageCenter - innerLeft);
+    const rightDelta = Math.abs(innerRight - pageCenter);
+    const asymmetry = Math.abs(leftDelta - rightDelta);
+    const isVerySparsePair = gap > avgWidth * 2;
+
+    return isVerySparsePair && asymmetry > imageWidth * 0.12;
+};
+
+const resolvePairCenteringOptions = (hasSignificantGap: boolean, options: PoetryDetectionOptions) => {
+    if (!hasSignificantGap) {
+        return resolveCenteringOptions(options);
+    }
+
+    return {
+        ...resolveCenteringOptions(options),
+        centerToleranceRatio: (options.centerToleranceRatio ?? DEFAULT_CENTER_TOLERANCE) * 2.5,
+        minMarginRatio: (options.minMarginRatio ?? DEFAULT_MIN_MARGIN) * 0.75,
+    };
+};
+
+const toCombinedBbox = (obs1: Observation, obs2: Observation) => {
+    const leftX = Math.min(obs1.bbox.x, obs2.bbox.x);
+    const rightmostPoint = Math.max(obs1.bbox.x + obs1.bbox.width, obs2.bbox.x + obs2.bbox.width);
+
+    return {
+        height:
+            Math.max(obs1.bbox.y + obs1.bbox.height, obs2.bbox.y + obs2.bbox.height) -
+            Math.min(obs1.bbox.y, obs2.bbox.y),
+        width: rightmostPoint - leftX,
+        x: leftX,
+        y: Math.min(obs1.bbox.y, obs2.bbox.y),
+    };
+};
 
 const hasPoetryLikeDensity = (
     obs: Observation,
@@ -49,7 +147,11 @@ const hasPoetryLikeDensity = (
     minWidthRatioForMerged: number,
     wordDensityComparisonRatio: number,
 ) => {
-    if (obs.bbox.width <= imageWidth * minWidthRatioForMerged || avgProseWordDensity <= 0) {
+    if (
+        obs.bbox.width <= imageWidth * minWidthRatioForMerged ||
+        !Number.isFinite(avgProseWordDensity) ||
+        avgProseWordDensity <= 0
+    ) {
         return false;
     }
 
@@ -80,7 +182,7 @@ export const calculateAverageProseDensity = (
     let totalWidth = 0;
 
     for (const obs of observations) {
-        const wordCount = obs.text.split(' ').length;
+        const wordCount = getWordCount(obs.text);
 
         // Enhanced filtering for better prose identification
         const isLikelyProse =
@@ -95,7 +197,12 @@ export const calculateAverageProseDensity = (
         }
     }
 
-    return totalWords > 0 && totalWidth > 0 ? totalWords / totalWidth : 0;
+    if (totalWords <= 0 || totalWidth <= 0) {
+        return 0;
+    }
+
+    const density = totalWords / totalWidth;
+    return Number.isFinite(density) && density > 0 ? density : 0;
 };
 
 /**
@@ -122,6 +229,7 @@ export const isPoetryPair = (
     options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ): boolean => {
     const minWordCount = options.minWordCount ?? DEFAULT_MIN_WORD_COUNT;
+    const maxVerticalGapRatio = options.maxVerticalGapRatio ?? DEFAULT_MAX_VERTICAL_GAP_RATIO;
     const pairWidthSimilarityRatio = options.pairWidthSimilarityRatio ?? DEFAULT_PAIR_WIDTH_SIMILARITY;
     const pairWordCountSimilarityRatio = options.pairWordCountSimilarityRatio ?? DEFAULT_PAIR_WORD_SIMILARITY;
     const words1 = getWordCount(obs1.text);
@@ -132,48 +240,40 @@ export const isPoetryPair = (
         return false;
     }
 
-    // Check width similarity
-    const avgWidth = (obs1.bbox.width + obs2.bbox.width) / 2;
-    const widthDiffRatio = Math.abs(obs1.bbox.width - obs2.bbox.width) / avgWidth;
-    if (widthDiffRatio >= pairWidthSimilarityRatio) {
+    const { avgWidth, isCompatible: hasCompatibleWidths } = hasCompatiblePairWidths(
+        obs1,
+        obs2,
+        pairWidthSimilarityRatio,
+    );
+    if (!hasCompatibleWidths) {
         return false;
     }
 
-    // Check word count similarity
-    const maxWords = Math.max(words1, words2);
-    const wordCountDiffRatio = Math.abs(words1 - words2) / maxWords;
-    if (wordCountDiffRatio >= pairWordCountSimilarityRatio) {
+    if (!hasCompatibleWordCounts(words1, words2, pairWordCountSimilarityRatio)) {
+        return false;
+    }
+
+    if (!hasCompatibleVerticalGap(obs1, obs2, maxVerticalGapRatio)) {
         return false;
     }
 
     // For pairs (hemistichs), the centering can be less strict, especially if
     // there is a clear visual gap separating them, which is a common poetic layout.
-    const leftObs = obs1.bbox.x < obs2.bbox.x ? obs1 : obs2;
-    const rightObs = obs1.bbox.x < obs2.bbox.x ? obs2 : obs1;
-    const gap = rightObs.bbox.x - (leftObs.bbox.x + leftObs.bbox.width);
+    const { gap, leftObs, rightObs } = getOrderedPairObservations(obs1, obs2);
+
+    if (isNumericOnlyToken(leftObs.text)) {
+        return false;
+    }
 
     // A gap is considered significant if it's large relative to the page width OR the text width.
     // This allows for more flexible detection of visually separated hemistichs.
     const hasSignificantGap = gap > imageWidth * 0.07 || gap > avgWidth * 0.15;
-    const centeringOptions = hasSignificantGap
-        ? {
-              ...resolveCenteringOptions(options),
-              centerToleranceRatio: (options.centerToleranceRatio ?? DEFAULT_CENTER_TOLERANCE) * 2.5,
-              minMarginRatio: (options.minMarginRatio ?? DEFAULT_MIN_MARGIN) * 0.75,
-          }
-        : resolveCenteringOptions(options);
+    if (hasSignificantGap && hasAsymmetricSparseGap(leftObs, rightObs, gap, avgWidth, imageWidth)) {
+        return false;
+    }
 
-    // Check if the pair as a whole is centered using the determined options.
-    const leftX = Math.min(obs1.bbox.x, obs2.bbox.x);
-    const rightmostPoint = Math.max(obs1.bbox.x + obs1.bbox.width, obs2.bbox.x + obs2.bbox.width);
-    const combinedBbox = {
-        height:
-            Math.max(obs1.bbox.y + obs1.bbox.height, obs2.bbox.y + obs2.bbox.height) -
-            Math.min(obs1.bbox.y, obs2.bbox.y),
-        width: rightmostPoint - leftX,
-        x: leftX,
-        y: Math.min(obs1.bbox.y, obs2.bbox.y),
-    };
+    const centeringOptions = resolvePairCenteringOptions(hasSignificantGap, options);
+    const combinedBbox = toCombinedBbox(obs1, obs2);
 
     return isObservationCentered(combinedBbox, imageWidth, centeringOptions);
 };

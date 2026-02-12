@@ -86,6 +86,7 @@ const rows = computed<DemoRow[]>(() => {
 
             const lines = mapObservationsToTextLines(fixture.observations, page, {
                 horizontalLines: structure.horizontal_lines,
+                poetryPairDelimiter: ' … ',
                 rectangles: structure.rectangles,
             });
             const paragraphs = mapTextLinesToParagraphs(lines);

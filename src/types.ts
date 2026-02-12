@@ -117,6 +117,15 @@ export type MapObservationsToTextLinesOptions = CenteringOptions & {
     poetryDetectionOptions?: Partial<PoetryDetectionOptions>;
 
     /**
+     * Delimiter used when merging a detected poetry pair (hemistichs) into a single line.
+     *
+     * Example: `" ... "` formats a pair as `صدر ... عجز`.
+     *
+     * @default " "
+     */
+    poetryPairDelimiter?: string;
+
+    /**
      * Optional array of rectangular elements detected in the document.
      * These are typically used to identify text boxes, highlighted sections, or headers.
      * When provided, text within these rectangles may be classified as headings.

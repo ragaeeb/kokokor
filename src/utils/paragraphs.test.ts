@@ -284,6 +284,34 @@ describe('paragraphs', () => {
             ]);
         });
 
+        it('should merge a pair of poetry lines using the configured delimiter', () => {
+            defaultDpi.width = 2480;
+
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 20, width: 600, x: 479, y: 0 }, text: 'A B C D' },
+                    { bbox: { height: 20, width: 600, x: 1260, y: 0 }, text: 'E F G H' },
+                ],
+                defaultDpi,
+                {
+                    poetryPairDelimiter: ' ... ',
+                },
+            );
+
+            expect(actual).toEqual([
+                {
+                    bbox: {
+                        height: 20,
+                        width: 1381,
+                        x: 620,
+                        y: 0,
+                    },
+                    isPoetic: true,
+                    text: 'E F G H ... A B C D',
+                },
+            ]);
+        });
+
         it('should merge lines that were broken up by OCR engine', () => {
             const actual = mapObservationsToTextLines(
                 [
@@ -291,6 +319,9 @@ describe('paragraphs', () => {
                     { bbox: { height: 20, width: 200, x: 500, y: 5 }, text: 'CD' },
                 ],
                 defaultDpi,
+                {
+                    poetryPairDelimiter: ' ... ',
+                },
             );
 
             expect(actual).toEqual([

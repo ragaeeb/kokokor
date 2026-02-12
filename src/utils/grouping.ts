@@ -73,9 +73,10 @@ export const sortGroupsHorizontally = <T extends { bbox: { x: number } }>(groupe
 /**
  * Merges the group of observations into a single one.
  * @param group The group of observations to merge.
+ * @param delimiter Text delimiter used when concatenating observations.
  * @returns A single observation with the text of the group concatenated as well as the bounding box adjusted to fit all of the contents.
  */
-export const mergeObservations = <T extends Observation>(group: T[]): T => {
+export const mergeObservations = <T extends Observation>(group: T[], delimiter = ' '): T => {
     // Initialize with the first observation's values
     let minX = group[0].bbox.x;
     let minY = group[0].bbox.y;
@@ -95,8 +96,8 @@ export const mergeObservations = <T extends Observation>(group: T[]): T => {
         maxX = Math.max(maxX, bbox.x + bbox.width);
         maxY = Math.max(maxY, bbox.y + bbox.height);
 
-        // Append text with space
-        combinedText += ' ' + text;
+        // Append text with delimiter
+        combinedText += `${delimiter}${text}`;
     }
 
     // Create the merged observation, preserving all properties from the first observation
