@@ -91,6 +91,12 @@ export const PARAGRAPH_INDENT_THRESHOLD_RATIO = 0.04;
 export const PARAGRAPH_MIN_INDENT_PX = 3;
 
 /**
+ * Minimum indent floor expressed as a ratio of typical line height.
+ * Helps keep indentation thresholds stable across different coordinate scales.
+ */
+export const PARAGRAPH_MIN_INDENT_HEIGHT_RATIO = 0.15;
+
+/**
  * Minimum width ratio for lines that can participate in indentation checks.
  */
 export const PARAGRAPH_MIN_INDENT_CANDIDATE_WIDTH_RATIO = 0.7;

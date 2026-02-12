@@ -58,4 +58,5 @@ export * from './types';
 export { mergeObservations } from './utils/grouping';
 export { filterHorizontalLinesOutsideRectangles, mapMatrixToBoundingBox } from './utils/layout';
 export { calculateDPI } from './utils/marking';
+export { resolveWithDefaults } from './utils/options';
 export { flipAndAlignObservations, mapObservationsToTextLines, mapTextLinesToParagraphs } from './utils/paragraphs';

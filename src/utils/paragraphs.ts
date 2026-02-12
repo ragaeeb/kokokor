@@ -17,21 +17,12 @@ import {
     normalizeObservationsX,
     simplifyObservations,
 } from './normalization';
+import { resolveWithDefaults } from './options';
 import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
 
 const DEFAULT_PARAGRAPH_OPTIONS: ParagraphOptions = {
     verticalJumpFactor: 2,
     widthTolerance: 0.85,
-};
-
-/**
- * Normalizes paragraph options into a single shape.
- */
-const resolveParagraphOptions = (options?: Partial<ParagraphOptions>) => {
-    return {
-        ...DEFAULT_PARAGRAPH_OPTIONS,
-        ...(options || {}),
-    };
 };
 
 /**
@@ -89,13 +80,9 @@ export const mapObservationsToTextLines = (
     opts?: Partial<MapObservationsToTextLinesOptions>,
 ) => {
     const options: MapObservationsToTextLinesOptions = {
-        ...DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS,
-        ...opts,
+        ...resolveWithDefaults(DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS, opts),
         // Merge poetry options specifically instead of replacing them
-        poetryDetectionOptions: {
-            ...DEFAULT_POETRY_OPTIONS,
-            ...(opts?.poetryDetectionOptions || {}),
-        },
+        poetryDetectionOptions: resolveWithDefaults(DEFAULT_POETRY_OPTIONS, opts?.poetryDetectionOptions || {}),
     };
     observations = flipAndAlignObservations(observations, dpi.width, dpi.x, options);
 
@@ -184,11 +171,7 @@ export const mapObservationsToTextLines = (
  * @param widthTolerance - Threshold for identifying short lines that should terminate a paragraph.
  * @returns Text blocks that represent merged prose paragraphs alongside untouched poetry lines.
  */
-const groupProseToParagraphs = (
-    textLines: TextBlock[],
-    verticalJumpFactor: number,
-    widthTolerance: number,
-) => {
+const groupProseToParagraphs = (textLines: TextBlock[], verticalJumpFactor: number, widthTolerance: number) => {
     const result: TextBlock[] = [];
     const current: TextBlock[] = [];
 
@@ -231,7 +214,7 @@ const groupProseToParagraphs = (
  * @returns Array of text blocks representing complete paragraphs
  */
 export const mapTextLinesToParagraphs = (textLines: TextBlock[], options?: Partial<ParagraphOptions>) => {
-    const resolvedOptions = resolveParagraphOptions(options);
+    const resolvedOptions = resolveWithDefaults(DEFAULT_PARAGRAPH_OPTIONS, options);
     const bodyBlocks: TextBlock[] = groupProseToParagraphs(
         textLines.filter((t) => !t.isFootnote),
         resolvedOptions.verticalJumpFactor,

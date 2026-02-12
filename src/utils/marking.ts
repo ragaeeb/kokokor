@@ -4,6 +4,7 @@ import {
     PARAGRAPH_BASELINE_PERCENTILE,
     PARAGRAPH_INDENT_THRESHOLD_RATIO,
     PARAGRAPH_MIN_INDENT_CANDIDATE_WIDTH_RATIO,
+    PARAGRAPH_MIN_INDENT_HEIGHT_RATIO,
     PARAGRAPH_MIN_INDENT_PX,
     PARAGRAPH_WIDTH_PERCENTILE,
     PTS_TO_INCHES,
@@ -192,10 +193,7 @@ export const calculateDPI = (imageSize: Size, pdfSize: Size) => {
  * Returns a percentile value from a sorted numeric array.
  */
 const pickPercentile = (sortedValues: number[], percentile: number) => {
-    const index = Math.min(
-        sortedValues.length - 1,
-        Math.max(0, Math.floor((sortedValues.length - 1) * percentile)),
-    );
+    const index = Math.min(sortedValues.length - 1, Math.max(0, Math.floor((sortedValues.length - 1) * percentile)));
     return sortedValues[index];
 };
 
@@ -214,6 +212,238 @@ const isListStartCandidate = <T extends { bbox: BoundingBox }>(
     indentThreshold: number,
     minWidth: number,
 ) => !isIndentedLine(item, baselineX, indentThreshold) && item.bbox.width >= minWidth;
+
+type BreakReason = 'indent' | 'list-start' | 'vertical' | null;
+
+type ParagraphMetrics = {
+    baselineX: number;
+    indentThreshold: number;
+    listStartBaselineX: number;
+    listStartIndentThreshold: number;
+    minIndentCandidateWidth: number;
+    shouldUseListStartSignal: boolean;
+    thresholdWidth: number;
+};
+
+const computeReferenceWidth = <T extends { bbox: BoundingBox }>(items: T[]) => {
+    const widths = items.map((item) => item.bbox.width).toSorted((a, b) => a - b);
+    return widths.length >= 4 ? pickPercentile(widths, PARAGRAPH_WIDTH_PERCENTILE) : widths[widths.length - 1];
+};
+
+const computeBaselineX = <T extends { bbox: BoundingBox }>(items: T[], minIndentCandidateWidth: number) => {
+    const baselineCandidates = items
+        .filter((item) => item.bbox.width >= minIndentCandidateWidth)
+        .map((item) => item.bbox.x)
+        .toSorted((a, b) => a - b);
+    const allX = items.map((item) => item.bbox.x).toSorted((a, b) => a - b);
+    const xValues = baselineCandidates.length > 0 ? baselineCandidates : allX;
+
+    return {
+        allX,
+        baselineX: pickPercentile(xValues, PARAGRAPH_BASELINE_PERCENTILE),
+    };
+};
+
+const computeIndentFloor = <T extends { bbox: BoundingBox }>(items: T[]) => {
+    const heights = items.map((item) => item.bbox.height).toSorted((a, b) => a - b);
+    const typicalLineHeight = pickPercentile(heights, 0.5);
+
+    return Math.max(PARAGRAPH_MIN_INDENT_PX, typicalLineHeight * PARAGRAPH_MIN_INDENT_HEIGHT_RATIO);
+};
+
+const shouldUseListStartSignal = <T extends { bbox: BoundingBox }>(
+    items: T[],
+    thresholdWidth: number,
+    minIndentCandidateWidth: number,
+    listStartBaselineX: number,
+    listStartIndentThreshold: number,
+) => {
+    const listStartCandidateCount = items.filter((item) =>
+        isListStartCandidate(item, listStartBaselineX, listStartIndentThreshold, minIndentCandidateWidth),
+    ).length;
+    const shortIndentedLineCount = items.filter(
+        (item) =>
+            item.bbox.width < minIndentCandidateWidth &&
+            isIndentedLine(item, listStartBaselineX, listStartIndentThreshold),
+    ).length;
+    const hasListBridge = items.some((item, i) => {
+        if (i === 0 || i === items.length - 1) {
+            return false;
+        }
+
+        const prev = items[i - 1];
+        const next = items[i + 1];
+        const isShortIndentedContinuation =
+            item.bbox.width < minIndentCandidateWidth &&
+            isIndentedLine(item, listStartBaselineX, listStartIndentThreshold);
+
+        return (
+            isShortIndentedContinuation &&
+            isListStartCandidate(prev, listStartBaselineX, listStartIndentThreshold, minIndentCandidateWidth) &&
+            isListStartCandidate(next, listStartBaselineX, listStartIndentThreshold, minIndentCandidateWidth)
+        );
+    });
+
+    return (
+        listStartCandidateCount >= LIST_START_MIN_CANDIDATES &&
+        shortIndentedLineCount >= LIST_START_MIN_SHORT_INDENTED_LINES &&
+        hasListBridge &&
+        items.some((item) => item.bbox.width < thresholdWidth)
+    );
+};
+
+const buildParagraphMetrics = <T extends { bbox: BoundingBox }>(
+    items: T[],
+    widthTolerance: number,
+): ParagraphMetrics => {
+    const referenceWidth = computeReferenceWidth(items);
+    const thresholdWidth = referenceWidth * widthTolerance;
+    const minIndentCandidateWidth = thresholdWidth * PARAGRAPH_MIN_INDENT_CANDIDATE_WIDTH_RATIO;
+    const { allX, baselineX } = computeBaselineX(items, minIndentCandidateWidth);
+    const listStartBaselineX = pickPercentile(allX, LIST_START_BASELINE_PERCENTILE);
+    const indentFloor = computeIndentFloor(items);
+    const indentThreshold = Math.max(referenceWidth * PARAGRAPH_INDENT_THRESHOLD_RATIO, indentFloor);
+    const listStartIndentThreshold = Math.max(referenceWidth * LIST_START_INDENT_THRESHOLD_RATIO, indentFloor);
+
+    return {
+        baselineX,
+        indentThreshold,
+        listStartBaselineX,
+        listStartIndentThreshold,
+        minIndentCandidateWidth,
+        shouldUseListStartSignal: shouldUseListStartSignal(
+            items,
+            thresholdWidth,
+            minIndentCandidateWidth,
+            listStartBaselineX,
+            listStartIndentThreshold,
+        ),
+        thresholdWidth,
+    };
+};
+
+const hasVerticalBreakSignal = <T extends { bbox: BoundingBox }>(
+    items: T[],
+    index: number,
+    thresholdWidth: number,
+    verticalJumpFactor: number,
+) => {
+    if (index === 0) {
+        return false;
+    }
+
+    const item = items[index];
+    const prev = items[index - 1];
+
+    if (index === 1) {
+        if (prev.bbox.width < thresholdWidth) {
+            return false;
+        }
+
+        const gap = item.bbox.y - prev.bbox.y;
+        return gap > prev.bbox.height * verticalJumpFactor;
+    }
+
+    const prevPrev = items[index - 2];
+    if (prev.bbox.width < thresholdWidth || prevPrev.bbox.width < thresholdWidth) {
+        return false;
+    }
+
+    const gap = item.bbox.y - prev.bbox.y;
+    const prevGap = prev.bbox.y - prevPrev.bbox.y;
+
+    if (prevGap > 0) {
+        return gap > prevGap * verticalJumpFactor;
+    }
+
+    return prevGap === 0 && gap > 0 && gap > item.bbox.height * 0.5 * verticalJumpFactor;
+};
+
+const hasIndentBreakSignal = <T extends { bbox: BoundingBox }>(
+    items: T[],
+    index: number,
+    metrics: ParagraphMetrics,
+) => {
+    if (index === 0) {
+        return false;
+    }
+
+    const item = items[index];
+    const prev = items[index - 1];
+    const isCurrentIndented = isIndentedLine(item, metrics.baselineX, metrics.indentThreshold);
+    const wasPrevShort = prev.bbox.width < metrics.thresholdWidth;
+
+    if (!isCurrentIndented || wasPrevShort || item.bbox.width < metrics.minIndentCandidateWidth) {
+        return false;
+    }
+
+    const wasPrevIndented = isIndentedLine(prev, metrics.baselineX, metrics.indentThreshold);
+    return !wasPrevIndented;
+};
+
+const hasListStartBreakSignal = <T extends { bbox: BoundingBox }>(
+    items: T[],
+    index: number,
+    metrics: ParagraphMetrics,
+) => {
+    if (index === 0 || !metrics.shouldUseListStartSignal) {
+        return false;
+    }
+
+    const item = items[index];
+    const prev = items[index - 1];
+    const isCurrentListStart = isListStartCandidate(
+        item,
+        metrics.listStartBaselineX,
+        metrics.listStartIndentThreshold,
+        metrics.minIndentCandidateWidth,
+    );
+    const isPrevListStart = isListStartCandidate(
+        prev,
+        metrics.listStartBaselineX,
+        metrics.listStartIndentThreshold,
+        metrics.minIndentCandidateWidth,
+    );
+    const wasPrevShort = prev.bbox.width < metrics.thresholdWidth;
+    const gap = item.bbox.y - prev.bbox.y;
+    const minGapForListStart = Math.min(prev.bbox.height, item.bbox.height) * LIST_START_GAP_HEIGHT_FACTOR;
+
+    return isCurrentListStart && isPrevListStart && !wasPrevShort && gap >= minGapForListStart;
+};
+
+const resolveBreakReason = <T extends { bbox: BoundingBox }>(
+    items: T[],
+    index: number,
+    verticalJumpFactor: number,
+    metrics: ParagraphMetrics,
+): BreakReason => {
+    if (hasVerticalBreakSignal(items, index, metrics.thresholdWidth, verticalJumpFactor)) {
+        return 'vertical';
+    }
+
+    if (hasIndentBreakSignal(items, index, metrics)) {
+        return 'indent';
+    }
+
+    if (hasListStartBreakSignal(items, index, metrics)) {
+        return 'list-start';
+    }
+
+    return null;
+};
+
+const shouldAdvanceAfterShortLine = <T extends { bbox: BoundingBox }>(
+    item: T,
+    index: number,
+    breakReason: BreakReason,
+    thresholdWidth: number,
+) => {
+    if (item.bbox.width >= thresholdWidth) {
+        return false;
+    }
+
+    return index === 0 || breakReason !== 'indent';
+};
 
 /**
  * Groups items into paragraphs based on vertical spacing patterns and line width analysis.
@@ -259,162 +489,23 @@ export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox }>(
     if (items.length === 0) {
         return [];
     }
-
-    // 1) Compute width threshold from a robust reference width instead of a single max outlier.
-    const widths = items.map((item) => item.bbox.width).toSorted((a, b) => a - b);
-    const referenceWidth =
-        widths.length >= 4 ? pickPercentile(widths, PARAGRAPH_WIDTH_PERCENTILE) : widths[widths.length - 1];
-    const thresholdWidth = referenceWidth * widthTolerance;
-
-    // 2) Build a right-edge baseline from sufficiently wide lines, then use a low percentile
-    // to reduce sensitivity to occasional x outliers.
-    const minIndentCandidateWidth = thresholdWidth * PARAGRAPH_MIN_INDENT_CANDIDATE_WIDTH_RATIO;
-    const baselineCandidates = items
-        .filter((item) => item.bbox.width >= minIndentCandidateWidth)
-        .map((item) => item.bbox.x)
-        .toSorted((a, b) => a - b);
-    const allX = items.map((item) => item.bbox.x).toSorted((a, b) => a - b);
-    const xValues = baselineCandidates.length > 0 ? baselineCandidates : allX;
-    const baselineX = pickPercentile(xValues, PARAGRAPH_BASELINE_PERCENTILE);
-
-    // 3) Keep a small floor so low-resolution pages don't treat jitter as indentation.
-    const indentThreshold = Math.max(referenceWidth * PARAGRAPH_INDENT_THRESHOLD_RATIO, PARAGRAPH_MIN_INDENT_PX);
-    const listStartBaselineX = pickPercentile(allX, LIST_START_BASELINE_PERCENTILE);
-    const listStartIndentThreshold = Math.max(
-        referenceWidth * LIST_START_INDENT_THRESHOLD_RATIO,
-        PARAGRAPH_MIN_INDENT_PX,
-    );
-    const listStartCandidateCount = items.filter((item) =>
-        isListStartCandidate(item, listStartBaselineX, listStartIndentThreshold, minIndentCandidateWidth),
-    ).length;
-    const shortIndentedLineCount = items.filter(
-        (item) =>
-            item.bbox.width < minIndentCandidateWidth &&
-            isIndentedLine(item, listStartBaselineX, listStartIndentThreshold),
-    ).length;
-    const hasListBridge = items.some((item, i) => {
-        if (i === 0 || i === items.length - 1) {
-            return false;
-        }
-
-        const prev = items[i - 1];
-        const next = items[i + 1];
-        const isShortIndentedContinuation =
-            item.bbox.width < minIndentCandidateWidth &&
-            isIndentedLine(item, listStartBaselineX, listStartIndentThreshold);
-
-        return (
-            isShortIndentedContinuation &&
-            isListStartCandidate(prev, listStartBaselineX, listStartIndentThreshold, minIndentCandidateWidth) &&
-            isListStartCandidate(next, listStartBaselineX, listStartIndentThreshold, minIndentCandidateWidth)
-        );
-    });
-    const shouldUseListStartSignal =
-        listStartCandidateCount >= LIST_START_MIN_CANDIDATES &&
-        shortIndentedLineCount >= LIST_START_MIN_SHORT_INDENTED_LINES &&
-        hasListBridge;
+    const metrics = buildParagraphMetrics(items, widthTolerance);
 
     const out: (T & { index: number })[] = [];
     let index = 0;
 
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        let shouldBreakBeforeCurrent = false;
-        let breakReason: 'indent' | 'list-start' | 'vertical' | null = null;
+        const breakReason = resolveBreakReason(items, i, verticalJumpFactor, metrics);
 
-        // a) Vertical jump signal (for current line)
-        if (i > 1) {
-            const prev = items[i - 1];
-            const prevPrev = items[i - 2];
-            if (prev.bbox.width >= thresholdWidth && prevPrev.bbox.width >= thresholdWidth) {
-                const gap = item.bbox.y - prev.bbox.y;
-                const prevGap = prev.bbox.y - prevPrev.bbox.y;
-                // Ensure prevGap is not zero to avoid division by zero or infinite jumpFactor sensitivity
-                if (prevGap > 0 && gap > prevGap * verticalJumpFactor) {
-                    shouldBreakBeforeCurrent = true;
-                    breakReason = 'vertical';
-                } else if (prevGap === 0 && gap > 0) {
-                    // If previous gap was zero (overlapping lines), consider it a paragraph break
-                    // if the current gap is significant compared to line height
-                    if (gap > item.bbox.height * 0.5 * verticalJumpFactor) {
-                        shouldBreakBeforeCurrent = true;
-                        breakReason = 'vertical';
-                    }
-                }
-            }
-        } else if (i === 1) {
-            const prev = items[i - 1]; // This is items[0]
-            // Only consider a vertical jump if the FIRST line was full-width.
-            // If the first line was short, its shortness already incremented 'index' for the current line.
-            if (prev.bbox.width >= thresholdWidth) {
-                const gap = item.bbox.y - prev.bbox.y;
-                if (gap > prev.bbox.height * verticalJumpFactor) {
-                    shouldBreakBeforeCurrent = true;
-                    breakReason = 'vertical';
-                }
-            }
-        }
-
-        // b) Indent signal (for current line)
-        if (!shouldBreakBeforeCurrent && i > 0) {
-            const prev = items[i - 1];
-            const isCurrentIndented = isIndentedLine(item, baselineX, indentThreshold);
-            const wasPrevShort = prev.bbox.width < thresholdWidth;
-
-            if (isCurrentIndented && !wasPrevShort && item.bbox.width >= minIndentCandidateWidth) {
-                const wasPrevIndented = isIndentedLine(prev, baselineX, indentThreshold);
-                if (!wasPrevIndented) {
-                    shouldBreakBeforeCurrent = true;
-                    breakReason = 'indent';
-                }
-            }
-        }
-
-        // c) List-start signal (for current line).
-        // Use geometric starts: baseline-aligned + sufficiently wide, and only when we
-        // detect repeated list-like structure with continuation lines in the same block.
-        if (!shouldBreakBeforeCurrent && i > 0 && shouldUseListStartSignal) {
-            const prev = items[i - 1];
-
-            const isCurrentListStart = isListStartCandidate(
-                item,
-                listStartBaselineX,
-                listStartIndentThreshold,
-                minIndentCandidateWidth,
-            );
-            const isPrevListStart = isListStartCandidate(
-                prev,
-                listStartBaselineX,
-                listStartIndentThreshold,
-                minIndentCandidateWidth,
-            );
-            const wasPrevShort = prev.bbox.width < thresholdWidth;
-            const gap = item.bbox.y - prev.bbox.y;
-            const minGapForListStart = Math.min(prev.bbox.height, item.bbox.height) * LIST_START_GAP_HEIGHT_FACTOR;
-
-            if (isCurrentListStart && isPrevListStart && !wasPrevShort && gap >= minGapForListStart) {
-                shouldBreakBeforeCurrent = true;
-                breakReason = 'list-start';
-            }
-        }
-
-        if (shouldBreakBeforeCurrent) {
+        if (breakReason !== null) {
             index++;
         }
 
-        // tag
         out.push({ ...item, index });
 
-        // d) Short-width signal applies to the next line, except when this line
-        // already started a paragraph due to indentation.
-        if (item.bbox.width < thresholdWidth) {
-            if (i === 0) {
-                index++;
-            } else {
-                if (breakReason !== 'indent') {
-                    index++;
-                }
-            }
+        if (shouldAdvanceAfterShortLine(item, i, breakReason, metrics.thresholdWidth)) {
+            index++;
         }
     }
 

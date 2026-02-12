@@ -28,6 +28,7 @@ describe('Build Exports Validation', () => {
             'mapTextLinesToParagraphs',
             'mergeObservations',
             'reconstructParagraphs',
+            'resolveWithDefaults'
         ].sort();
 
         const actualRuntimeExports = Object.keys(kokokor).sort();
