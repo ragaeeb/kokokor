@@ -96,7 +96,7 @@ export const mergeObservations = <T extends Observation>(group: T[], delimiter =
         maxX = Math.max(maxX, bbox.x + bbox.width);
         maxY = Math.max(maxY, bbox.y + bbox.height);
 
-        // Append text with space
+        // Append text with delimiter
         combinedText += `${delimiter}${text}`;
     }
 
