@@ -4,6 +4,7 @@ import {
     mapTextLinesToParagraphs,
     type BoundingBox,
     type Observation,
+    type PageContext,
 } from 'kokokor';
 import { computed } from 'vue';
 import demoPackage from '../package.json';
@@ -76,14 +77,14 @@ const rows = computed<DemoRow[]>(() => {
             const fixture = fixtureData[imageFile];
             const structure = structures[imageFile] ?? { dpi: {} };
 
-            const dpi: BoundingBox = {
+            const page: PageContext = {
+                dpiX: structure.dpi.x ?? 72,
+                dpiY: structure.dpi.y ?? 72,
                 height: structure.dpi.height ?? 0,
                 width: structure.dpi.width ?? 0,
-                x: structure.dpi.x ?? 72,
-                y: structure.dpi.y ?? 72,
             };
 
-            const lines = mapObservationsToTextLines(fixture.observations, dpi, {
+            const lines = mapObservationsToTextLines(fixture.observations, page, {
                 horizontalLines: structure.horizontal_lines,
                 rectangles: structure.rectangles,
             });

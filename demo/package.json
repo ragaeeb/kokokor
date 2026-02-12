@@ -1,6 +1,6 @@
 {
     "dependencies": {
-        "kokokor": "^2.0.4",
+        "kokokor": "^2.1.0",
         "vue": "^3.5.28"
     },
     "devDependencies": {

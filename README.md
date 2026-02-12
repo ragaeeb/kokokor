@@ -20,6 +20,8 @@
 ![GitHub stars](https://img.shields.io/github/stars/ragaeeb/kokokor?style=social)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ragaeeb/kokokor?utm_source=oss&utm_medium=github&utm_campaign=ragaeeb%2Fkokokor&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
+Demo: [kokokor.surge.sh](https://kokokor.surge.sh)
+
 A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs. It helps format unstructured text with appropriate paragraph breaks, optimizes for readability, and includes advanced poetry detection and layout analysis capabilities.
 
 ## Features
