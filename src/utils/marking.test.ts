@@ -1599,5 +1599,112 @@ describe('marking', () => {
             expect(result[0].index).toBe(result[1].index); // Same paragraph
             expect(result[1].index).not.toBe(result[2].index); // New paragraph
         });
+
+        it('should use robust width baseline when one line is an outlier', () => {
+            const observations = [
+                { bbox: { height: 20, width: 500, x: 10, y: 10 }, text: 'Line 1' },
+                { bbox: { height: 20, width: 500, x: 10, y: 40 }, text: 'Line 2' },
+                { bbox: { height: 20, width: 2200, x: 10, y: 70 }, text: 'Wide outlier' },
+                { bbox: { height: 20, width: 300, x: 10, y: 100 }, text: 'Line 4' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(0);
+            expect(result[2].index).toBe(0);
+            expect(result[3].index).toBe(0);
+        });
+
+        it('should remain robust to x outliers when deciding short-line right alignment', () => {
+            const observations = [
+                { bbox: { height: 20, width: 50, x: 0, y: 0 }, text: 'Outlier' },
+                { bbox: { height: 20, width: 500, x: 100, y: 20 }, text: 'Line 1' },
+                { bbox: { height: 20, width: 300, x: 100, y: 40 }, text: 'Short line' },
+                { bbox: { height: 20, width: 500, x: 100, y: 60 }, text: 'Line 2' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(1);
+            expect(result[2].index).toBe(1);
+            expect(result[3].index).toBe(2);
+        });
+
+        it('should increment only once when vertical jump and indentation both signal a break', () => {
+            const observations = [
+                { bbox: { height: 20, width: 500, x: 10, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 20, width: 500, x: 10, y: 20 }, text: 'Line 2' },
+                { bbox: { height: 20, width: 500, x: 40, y: 70 }, text: 'Line 3' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(0);
+            expect(result[2].index).toBe(1);
+        });
+
+        it('should not create an extra paragraph after a short indented line', () => {
+            const observations = [
+                { bbox: { height: 20, width: 500, x: 10, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 20, width: 300, x: 60, y: 20 }, text: 'Indented short line' },
+                { bbox: { height: 20, width: 500, x: 10, y: 40 }, text: 'Line 2' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(1);
+            expect(result[2].index).toBe(1);
+        });
+
+        it('should split once at the start of a consistently indented block', () => {
+            const observations = [
+                { bbox: { height: 20, width: 500, x: 10, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 20, width: 460, x: 40, y: 20 }, text: 'Line 2' },
+                { bbox: { height: 20, width: 460, x: 40, y: 40 }, text: 'Line 3' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(1);
+            expect(result[2].index).toBe(1);
+        });
+
+        it('should break repeated geometric list starts before current line without semantic tags', () => {
+            const observations = [
+                { bbox: { height: 36, width: 366, x: 46, y: 0 }, text: 'Note one' },
+                { bbox: { height: 34, width: 601, x: 46, y: 40 }, text: 'Note two long' },
+                { bbox: { height: 38, width: 384, x: 46, y: 80 }, text: 'Note three' },
+                { bbox: { height: 34, width: 601, x: 46, y: 120 }, text: 'Note four long' },
+                { bbox: { height: 38, width: 585, x: 46, y: 160 }, text: 'Note five long' },
+                { bbox: { height: 38, width: 731, x: 46, y: 200 }, text: 'Note six part A' },
+                { bbox: { height: 20, width: 80, x: 84, y: 240 }, text: 'continued detail' },
+                { bbox: { height: 34, width: 593, x: 46, y: 280 }, text: 'Note seven long' },
+                { bbox: { height: 38, width: 725, x: 46, y: 320 }, text: 'Note eight part A' },
+                { bbox: { height: 22, width: 68, x: 82, y: 360 }, text: 'continued citation' },
+                { bbox: { height: 34, width: 599, x: 46, y: 400 }, text: 'Note nine long' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+            const indices = result.map((line) => line.index);
+
+            expect(indices).toEqual([0, 1, 2, 3, 4, 5, 5, 6, 7, 7, 8]);
+        });
+
+        it('should not over-split short footnote blocks without repeated starts', () => {
+            const observations = [
+                { bbox: { height: 20, width: 520, x: 46, y: 0 }, isFootnote: true, text: 'Footnote line one' },
+                { bbox: { height: 20, width: 510, x: 46, y: 28 }, isFootnote: true, text: 'Footnote line two' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(0);
+        });
     });
 });

@@ -2,6 +2,7 @@ import type {
     BoundingBox,
     MapObservationsToTextLinesOptions,
     Observation,
+    ParagraphOptions,
     PoetryDetectionOptions,
     TextBlock,
 } from '@/types';
@@ -17,6 +18,21 @@ import {
     simplifyObservations,
 } from './normalization';
 import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
+
+const DEFAULT_PARAGRAPH_OPTIONS: ParagraphOptions = {
+    verticalJumpFactor: 2,
+    widthTolerance: 0.85,
+};
+
+/**
+ * Normalizes paragraph options into a single shape.
+ */
+const resolveParagraphOptions = (options?: Partial<ParagraphOptions>) => {
+    return {
+        ...DEFAULT_PARAGRAPH_OPTIONS,
+        ...(options || {}),
+    };
+};
 
 /**
  * Preprocesses observations by filtering noise, flipping coordinates for RTL text,
@@ -168,7 +184,11 @@ export const mapObservationsToTextLines = (
  * @param widthTolerance - Threshold for identifying short lines that should terminate a paragraph.
  * @returns Text blocks that represent merged prose paragraphs alongside untouched poetry lines.
  */
-const groupProseToParagraphs = (textLines: TextBlock[], verticalJumpFactor: number, widthTolerance: number) => {
+const groupProseToParagraphs = (
+    textLines: TextBlock[],
+    verticalJumpFactor: number,
+    widthTolerance: number,
+) => {
     const result: TextBlock[] = [];
     const current: TextBlock[] = [];
 
@@ -207,20 +227,20 @@ const groupProseToParagraphs = (textLines: TextBlock[], verticalJumpFactor: numb
  * Processes body content and footnotes separately.
  *
  * @param textLines - Array of text lines to group into paragraphs
- * @param verticalJumpFactor - Factor for detecting paragraph breaks based on vertical spacing (default: 2)
- * @param widthTolerance - Threshold for identifying "short" lines that indicate paragraph breaks (default: 0.85)
+ * @param options - Object-based paragraph detection settings.
  * @returns Array of text blocks representing complete paragraphs
  */
-export const mapTextLinesToParagraphs = (textLines: TextBlock[], verticalJumpFactor = 2, widthTolerance = 0.85) => {
+export const mapTextLinesToParagraphs = (textLines: TextBlock[], options?: Partial<ParagraphOptions>) => {
+    const resolvedOptions = resolveParagraphOptions(options);
     const bodyBlocks: TextBlock[] = groupProseToParagraphs(
         textLines.filter((t) => !t.isFootnote),
-        verticalJumpFactor,
-        widthTolerance,
+        resolvedOptions.verticalJumpFactor,
+        resolvedOptions.widthTolerance,
     );
     const footerBlocks: TextBlock[] = groupProseToParagraphs(
         textLines.filter((t) => t.isFootnote),
-        verticalJumpFactor,
-        widthTolerance,
+        resolvedOptions.verticalJumpFactor,
+        resolvedOptions.widthTolerance,
     );
 
     return bodyBlocks.concat(footerBlocks);

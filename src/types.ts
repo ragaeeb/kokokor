@@ -125,6 +125,32 @@ export type MapObservationsToTextLinesOptions = CenteringOptions & {
 };
 
 /**
+ * Options for grouping text lines into paragraphs.
+ *
+ * These options replace positional arguments with named fields so callers can
+ * tune behavior without relying on parameter ordering.
+ */
+export type ParagraphOptions = {
+    /**
+     * Factor for detecting paragraph breaks based on vertical spacing.
+     *
+     * Higher values make break detection stricter.
+     *
+     * @default 2
+     */
+    verticalJumpFactor: number;
+
+    /**
+     * Threshold for identifying short lines that indicate paragraph endings.
+     *
+     * Lower values mark fewer lines as "short".
+     *
+     * @default 0.85
+     */
+    widthTolerance: number;
+};
+
+/**
  * Represents a basic text observation extracted from OCR processing.
  *
  * This is the fundamental unit of OCR output, containing both the recognized
@@ -147,6 +173,91 @@ export type Observation = {
      * which may include punctuation, numbers, or special characters.
      */
     text: string;
+};
+
+/**
+ * Canonical page metadata required for reconstruction.
+ */
+export type PageContext = {
+    /**
+     * Page width in pixels.
+     */
+    width: number;
+
+    /**
+     * Page height in pixels.
+     */
+    height: number;
+
+    /**
+     * Horizontal DPI.
+     */
+    dpiX: number;
+
+    /**
+     * Vertical DPI.
+     */
+    dpiY: number;
+};
+
+/**
+ * Optional layout primitives extracted from a page.
+ */
+export type LayoutElements = {
+    /**
+     * Horizontal separators used for footnote boundary detection.
+     */
+    horizontalLines?: BoundingBox[];
+
+    /**
+     * Rectangles used for heading/boxed-content detection.
+     */
+    rectangles?: BoundingBox[];
+};
+
+/**
+ * Input payload for one-shot paragraph reconstruction.
+ */
+export type ReconstructInput = {
+    /**
+     * OCR observations to reconstruct.
+     */
+    observations: Observation[];
+
+    /**
+     * Page geometry and DPI context.
+     */
+    page: PageContext;
+
+    /**
+     * Optional structural layout hints.
+     */
+    layout?: LayoutElements;
+};
+
+/**
+ * Optional knobs for one-shot paragraph reconstruction.
+ */
+export type ReconstructOptions = {
+    /**
+     * Line-detection options.
+     */
+    line?: Partial<MapObservationsToTextLinesOptions>;
+
+    /**
+     * Paragraph-detection options.
+     */
+    paragraph?: Partial<ParagraphOptions>;
+
+    /**
+     * Text formatting options.
+     */
+    format?: {
+        /**
+         * Optional symbol to insert before first footnote.
+         */
+        footerSymbol?: string;
+    };
 };
 
 /**
@@ -328,4 +439,24 @@ export type TextBlock = Observation & {
      * of poems, verses, and other formatted literary content.
      */
     isPoetic?: boolean;
+};
+
+/**
+ * Output payload from one-shot paragraph reconstruction.
+ */
+export type ReconstructResult = {
+    /**
+     * Intermediate line-level blocks.
+     */
+    lines: TextBlock[];
+
+    /**
+     * Final paragraph-level blocks.
+     */
+    paragraphs: TextBlock[];
+
+    /**
+     * Formatted plain text output.
+     */
+    text: string;
 };

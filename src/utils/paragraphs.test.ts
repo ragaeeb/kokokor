@@ -569,5 +569,77 @@ describe('paragraphs', () => {
                 },
             ]);
         });
+
+        it('should support object-based paragraph options', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 200, x: 0, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 10, width: 200, x: 0, y: 20 }, text: 'Line 2' },
+                { bbox: { height: 10, width: 200, x: 0, y: 120 }, text: 'Line 3' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines, {
+                verticalJumpFactor: 2,
+                widthTolerance: 0.85,
+            });
+
+            expect(actual).toHaveLength(2);
+            expect(actual[0].text).toBe('Line 1 Line 2');
+            expect(actual[1].text).toBe('Line 3');
+        });
+
+        it('should use enhanced paragraph detection by default', () => {
+            const textLines = [
+                { bbox: { height: 20, width: 500, x: 10, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 20, width: 460, x: 40, y: 20 }, text: 'Line 2' },
+                { bbox: { height: 20, width: 460, x: 40, y: 40 }, text: 'Line 3' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toHaveLength(2);
+            expect(actual[0].text).toBe('Line 1');
+            expect(actual[1].text).toBe('Line 2 Line 3');
+        });
+
+        it('should keep repeated list starts separated using geometry without semantic tags', () => {
+            const textLines = [
+                { bbox: { height: 36, width: 366, x: 46, y: 0 }, text: 'Note one' },
+                { bbox: { height: 34, width: 601, x: 46, y: 40 }, text: 'Note two long' },
+                { bbox: { height: 38, width: 384, x: 46, y: 80 }, text: 'Note three' },
+                { bbox: { height: 34, width: 601, x: 46, y: 120 }, text: 'Note four long' },
+                { bbox: { height: 38, width: 585, x: 46, y: 160 }, text: 'Note five long' },
+                { bbox: { height: 38, width: 731, x: 46, y: 200 }, text: 'Note six part A' },
+                { bbox: { height: 20, width: 80, x: 84, y: 240 }, text: 'continued detail' },
+                { bbox: { height: 34, width: 593, x: 46, y: 280 }, text: 'Note seven long' },
+                { bbox: { height: 38, width: 725, x: 46, y: 320 }, text: 'Note eight part A' },
+                { bbox: { height: 22, width: 68, x: 82, y: 360 }, text: 'continued citation' },
+                { bbox: { height: 34, width: 599, x: 46, y: 400 }, text: 'Note nine long' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toHaveLength(9);
+            expect(actual[0].text).toBe('Note one');
+            expect(actual[1].text).toBe('Note two long');
+            expect(actual[2].text).toBe('Note three');
+            expect(actual[3].text).toBe('Note four long');
+            expect(actual[4].text).toBe('Note five long');
+            expect(actual[5].text).toBe('Note six part A continued detail');
+            expect(actual[6].text).toBe('Note seven long');
+            expect(actual[7].text).toBe('Note eight part A continued citation');
+            expect(actual[8].text).toBe('Note nine long');
+        });
+
+        it('should apply indentation signal inside footnotes', () => {
+            const textLines = [
+                { bbox: { height: 20, width: 500, x: 10, y: 0 }, isFootnote: true, text: 'Footnote line 1' },
+                { bbox: { height: 20, width: 460, x: 40, y: 20 }, isFootnote: true, text: 'Footnote line 2' },
+                { bbox: { height: 20, width: 460, x: 40, y: 40 }, isFootnote: true, text: 'Footnote line 3' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines);
+
+            expect(actual).toHaveLength(2);
+        });
     });
 });

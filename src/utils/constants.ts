@@ -69,3 +69,28 @@ export const MAX_PROSE_WORD_COUNT = 25;
  * - Parentheses (())
  */
 export const PROSE_PUNCTUATION_PATTERN = /[،,؛;؟?۔.:()]/;
+
+/**
+ * Percentile used as the robust reference width for paragraph grouping.
+ */
+export const PARAGRAPH_WIDTH_PERCENTILE = 0.75;
+
+/**
+ * Percentile used for deriving the right-edge x baseline from candidate lines.
+ */
+export const PARAGRAPH_BASELINE_PERCENTILE = 0.25;
+
+/**
+ * Ratio of reference width used to detect right-edge indentation.
+ */
+export const PARAGRAPH_INDENT_THRESHOLD_RATIO = 0.04;
+
+/**
+ * Minimum pixel distance required before classifying a line as indented.
+ */
+export const PARAGRAPH_MIN_INDENT_PX = 3;
+
+/**
+ * Minimum width ratio for lines that can participate in indentation checks.
+ */
+export const PARAGRAPH_MIN_INDENT_CANDIDATE_WIDTH_RATIO = 0.7;
