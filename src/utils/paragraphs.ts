@@ -1,7 +1,7 @@
 import type {
-    BoundingBox,
     MapObservationsToTextLinesOptions,
     Observation,
+    PageContext,
     ParagraphOptions,
     PoetryDetectionOptions,
     TextBlock,
@@ -20,7 +20,9 @@ import {
 import { resolveWithDefaults } from './options';
 import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
 
-const DEFAULT_PARAGRAPH_OPTIONS: ParagraphOptions = {
+type ResolvedParagraphOptions = Required<ParagraphOptions>;
+
+const DEFAULT_PARAGRAPH_OPTIONS: ResolvedParagraphOptions = {
     verticalJumpFactor: 2,
     widthTolerance: 0.85,
 };
@@ -70,28 +72,34 @@ export const flipAndAlignObservations = (
  * and poetic content. Also performs poetry detection to preserve poetic formatting.
  *
  * @param observations - Array of OCR text observations
- * @param dpi - Document DPI information including width and height
+ * @param page - Page dimensions and DPI information.
  * @param opts - Configuration options for text line processing
  * @returns Array of text blocks with metadata (centering, headings, footnotes, poetry)
  */
 export const mapObservationsToTextLines = (
     observations: Observation[],
-    dpi: BoundingBox,
+    page: PageContext,
     opts?: Partial<MapObservationsToTextLinesOptions>,
 ) => {
     const options: MapObservationsToTextLinesOptions = {
         ...resolveWithDefaults(DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS, opts),
         // Merge poetry options specifically instead of replacing them
-        poetryDetectionOptions: resolveWithDefaults(DEFAULT_POETRY_OPTIONS, opts?.poetryDetectionOptions || {}),
+        poetryDetectionOptions: resolveWithDefaults(DEFAULT_POETRY_OPTIONS, opts?.poetryDetectionOptions ?? {}),
     };
-    observations = flipAndAlignObservations(observations, dpi.width, dpi.x, options);
+    observations = flipAndAlignObservations(observations, page.width, page.dpiX, options);
 
     if (observations.length === 0) {
         return [];
     }
 
     if (options.log) {
-        options.log('indexObservationsAsLines', observations, dpi.y, options.pixelTolerance, options.lineHeightFactor);
+        options.log(
+            'indexObservationsAsLines',
+            observations,
+            page.dpiY,
+            options.pixelTolerance,
+            options.lineHeightFactor,
+        );
     }
 
     const footerLineY = getLastHorizontalLineY(
@@ -101,10 +109,10 @@ export const mapObservationsToTextLines = (
     );
     const avgProseWordDensity = calculateAverageProseDensity(
         observations,
-        dpi.width,
+        page.width,
         options.poetryDetectionOptions as PoetryDetectionOptions,
     );
-    const marked = indexItemsAsLines(observations, dpi.y, options.pixelTolerance!, options.lineHeightFactor).map(
+    const marked = indexItemsAsLines(observations, page.dpiY, options.pixelTolerance!, options.lineHeightFactor).map(
         (o) => {
             const e: TextBlock & { index: number } = { ...o };
 
@@ -116,7 +124,7 @@ export const mapObservationsToTextLines = (
                 e.isHeading = true;
             }
 
-            if (isObservationCentered(o.bbox, dpi.width, options)) {
+            if (isObservationCentered(o.bbox, page.width, options)) {
                 e.isCentered = true;
             }
 
@@ -149,7 +157,7 @@ export const mapObservationsToTextLines = (
         if (
             isPoeticGroup(
                 group,
-                dpi.width,
+                page.width,
                 avgProseWordDensity,
                 options.poetryDetectionOptions as PoetryDetectionOptions,
             )
@@ -213,7 +221,7 @@ const groupProseToParagraphs = (textLines: TextBlock[], verticalJumpFactor: numb
  * @param options - Object-based paragraph detection settings.
  * @returns Array of text blocks representing complete paragraphs
  */
-export const mapTextLinesToParagraphs = (textLines: TextBlock[], options?: Partial<ParagraphOptions>) => {
+export const mapTextLinesToParagraphs = (textLines: TextBlock[], options: ParagraphOptions = {}) => {
     const resolvedOptions = resolveWithDefaults(DEFAULT_PARAGRAPH_OPTIONS, options);
     const bodyBlocks: TextBlock[] = groupProseToParagraphs(
         textLines.filter((t) => !t.isFootnote),

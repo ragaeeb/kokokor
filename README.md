@@ -196,7 +196,7 @@ One-shot API that runs the complete reconstruction pipeline:
 
 Recommended for most clients.
 
-#### `mapObservationsToTextLines(observations: Observation[], dpi: BoundingBox, options: MapObservationsToTextLinesOptions): TextBlock[]`
+#### `mapObservationsToTextLines(observations: Observation[], page: PageContext, options: MapObservationsToTextLinesOptions): TextBlock[]`
 
 Converts OCR observations into structured text lines with metadata.
 

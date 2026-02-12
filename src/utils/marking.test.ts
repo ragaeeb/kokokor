@@ -1706,5 +1706,45 @@ describe('marking', () => {
             expect(result[0].index).toBe(0);
             expect(result[1].index).toBe(0);
         });
+
+        it('should not split full-width numbered body lines as list starts', () => {
+            const observations = [
+                { bbox: { height: 24, width: 700, x: 46, y: 0 }, text: '١) بند أول ممتد' },
+                { bbox: { height: 24, width: 700, x: 46, y: 36 }, text: '٢) بند ثان ممتد' },
+                { bbox: { height: 24, width: 700, x: 46, y: 72 }, text: '٣) بند ثالث ممتد' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(0);
+            expect(result[2].index).toBe(0);
+        });
+
+        it('should keep first line at paragraph index zero', () => {
+            const observations = [
+                { bbox: { height: 20, width: 500, x: 10, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 20, width: 500, x: 40, y: 120 }, text: 'Line 2' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(1);
+        });
+
+        it('should use minimum indent pixel floor for tiny line-height inputs', () => {
+            const observations = [
+                { bbox: { height: 2, width: 60, x: 10, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 2, width: 60, x: 13, y: 3 }, text: 'Line 2' },
+                { bbox: { height: 2, width: 60, x: 13, y: 6 }, text: 'Line 3' },
+            ];
+
+            const result = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(result[0].index).toBe(0);
+            expect(result[1].index).toBe(0);
+            expect(result[2].index).toBe(0);
+        });
     });
 });

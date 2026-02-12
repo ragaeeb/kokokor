@@ -11,10 +11,29 @@ import {
 } from './constants';
 import { analyzeLineSpacing, computeAdaptiveLineHeightFactor } from './layout';
 
+/**
+ * Minimum number of left-edge candidates required before list-start heuristics activate.
+ */
 const LIST_START_MIN_CANDIDATES = 3;
+
+/**
+ * Minimum relative vertical gap between consecutive list starts.
+ */
 const LIST_START_GAP_HEIGHT_FACTOR = 0.9;
+
+/**
+ * Smaller indentation threshold used for repeated list-start lines.
+ */
 const LIST_START_INDENT_THRESHOLD_RATIO = 0.03;
+
+/**
+ * Low percentile for detecting a stable left-edge baseline for list starts.
+ */
 const LIST_START_BASELINE_PERCENTILE = 0.1;
+
+/**
+ * Number of short indented continuation lines needed to confirm list topology.
+ */
 const LIST_START_MIN_SHORT_INDENTED_LINES = 2;
 
 /**
@@ -251,6 +270,16 @@ const computeIndentFloor = <T extends { bbox: BoundingBox }>(items: T[]) => {
     return Math.max(PARAGRAPH_MIN_INDENT_PX, typicalLineHeight * PARAGRAPH_MIN_INDENT_HEIGHT_RATIO);
 };
 
+/**
+ * Detects repeated list-start geometry (e.g., numbered footnote items) without
+ * depending on semantic markers such as `isFootnote` or regex prefixes.
+ *
+ * The signal activates only when we observe:
+ * - multiple near-baseline list-start candidates,
+ * - short indented continuation lines,
+ * - at least one bridge pattern (start -> continuation -> start),
+ * - and short lines present in the block.
+ */
 const shouldUseListStartSignal = <T extends { bbox: BoundingBox }>(
     items: T[],
     thresholdWidth: number,
@@ -417,6 +446,10 @@ const resolveBreakReason = <T extends { bbox: BoundingBox }>(
     verticalJumpFactor: number,
     metrics: ParagraphMetrics,
 ): BreakReason => {
+    if (index === 0) {
+        return null;
+    }
+
     if (hasVerticalBreakSignal(items, index, metrics.thresholdWidth, verticalJumpFactor)) {
         return 'vertical';
     }
@@ -449,17 +482,25 @@ const shouldAdvanceAfterShortLine = <T extends { bbox: BoundingBox }>(
  * Groups items into paragraphs based on vertical spacing patterns and line width analysis.
  *
  * This function analyzes vertical spacing between consecutive items and their widths to
- * identify paragraph boundaries. The algorithm uses two main heuristics:
+ * identify paragraph boundaries. The algorithm uses four coordinated signals:
  *
  * 1. **Vertical jump detection**: A new paragraph starts when there's a significant
  *    increase in vertical gap compared to previous gaps, but only when both preceding
  *    lines are "full-width" (not short lines that might indicate natural breaks)
  *
- * 2. **Short line detection**: Lines significantly narrower than a robust reference width
- *    are considered paragraph-ending lines, causing the next line to start a new paragraph
+ * 2. **Indent-start detection**: A line that newly indents from the right-edge baseline
+ *    starts a new paragraph.
+ *
+ * 3. **List-start detection**: Repeated left-edge starts with short indented continuations
+ *    are treated as separate list items.
+ *
+ * 4. **Short line detection**: Lines significantly narrower than a robust reference width
+ *    are considered paragraph-ending lines, causing the next line to start a new paragraph.
  *
  * These heuristics work together to handle various paragraph patterns including:
  * - Standard paragraphs with consistent spacing
+ * - Consistently indented paragraph starts
+ * - Repeated list-start structures (including footnote-style note lists)
  * - Paragraphs ending with short lines
  * - Headers and subheadings with extra spacing
  * - Footer content separated by spacing
@@ -504,6 +545,8 @@ export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox }>(
 
         out.push({ ...item, index });
 
+        // Short lines normally trigger a break for the next line; however, if the
+        // current line already started a paragraph via indent, avoid a second advance.
         if (shouldAdvanceAfterShortLine(item, i, breakReason, metrics.thresholdWidth)) {
             index++;
         }

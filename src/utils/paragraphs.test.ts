@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from 'bun:test';
+import type { PageContext } from '@/types';
 
 import { flipAndAlignObservations, mapObservationsToTextLines, mapTextLinesToParagraphs } from './paragraphs';
 
@@ -66,14 +67,14 @@ describe('paragraphs', () => {
     });
 
     describe('mapObservationsToTextLines', () => {
-        let defaultDpi;
+        let defaultDpi: PageContext;
 
         beforeEach(() => {
             defaultDpi = {
+                dpiX: 72,
+                dpiY: 72,
                 height: 1200,
                 width: 800,
-                x: 72,
-                y: 72,
             };
         });
 
@@ -119,6 +120,32 @@ describe('paragraphs', () => {
             ]);
 
             expect(log).toHaveBeenCalledTimes(5);
+        });
+
+        it('should support explicit page context with dpiX and dpiY fields', () => {
+            const actual = mapObservationsToTextLines(
+                [{ bbox: { height: 20, width: 700, x: 0, y: 100 }, text: 'AB' }],
+                {
+                    dpiX: 72,
+                    dpiY: 72,
+                    height: 1200,
+                    width: 800,
+                },
+                { horizontalLines: [{ height: 2, width: 800, x: 0, y: 90 }] },
+            );
+
+            expect(actual).toEqual([
+                {
+                    bbox: {
+                        height: 20,
+                        width: 700,
+                        x: 100,
+                        y: 100,
+                    },
+                    isFootnote: true,
+                    text: 'AB',
+                },
+            ]);
         });
 
         it('should map the observation as a footnote', () => {
@@ -580,6 +607,22 @@ describe('paragraphs', () => {
             const actual = mapTextLinesToParagraphs(textLines, {
                 verticalJumpFactor: 2,
                 widthTolerance: 0.85,
+            });
+
+            expect(actual).toHaveLength(2);
+            expect(actual[0].text).toBe('Line 1 Line 2');
+            expect(actual[1].text).toBe('Line 3');
+        });
+
+        it('should preserve defaults when only one paragraph option is provided', () => {
+            const textLines = [
+                { bbox: { height: 10, width: 200, x: 0, y: 0 }, text: 'Line 1' },
+                { bbox: { height: 10, width: 200, x: 0, y: 20 }, text: 'Line 2' },
+                { bbox: { height: 10, width: 200, x: 0, y: 120 }, text: 'Line 3' },
+            ];
+
+            const actual = mapTextLinesToParagraphs(textLines, {
+                verticalJumpFactor: 2,
             });
 
             expect(actual).toHaveLength(2);

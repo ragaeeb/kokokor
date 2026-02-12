@@ -138,7 +138,7 @@ export type ParagraphOptions = {
      *
      * @default 2
      */
-    verticalJumpFactor: number;
+    verticalJumpFactor?: number;
 
     /**
      * Threshold for identifying short lines that indicate paragraph endings.
@@ -147,7 +147,7 @@ export type ParagraphOptions = {
      *
      * @default 0.85
      */
-    widthTolerance: number;
+    widthTolerance?: number;
 };
 
 /**
@@ -247,7 +247,7 @@ export type ReconstructOptions = {
     /**
      * Paragraph-detection options.
      */
-    paragraph?: Partial<ParagraphOptions>;
+    paragraph?: ParagraphOptions;
 
     /**
      * Text formatting options.

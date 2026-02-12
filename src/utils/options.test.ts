@@ -31,5 +31,15 @@ describe('options', () => {
             expect(defaults).toEqual({ a: 1, nested: { x: 1 } });
             expect(overrides).toEqual({ a: 2 });
         });
+
+        it('should ignore explicit undefined overrides and keep defaults', () => {
+            const defaults = { a: 1, b: 'x' };
+
+            const result = resolveWithDefaults(defaults, {
+                a: undefined,
+            });
+
+            expect(result).toEqual({ a: 1, b: 'x' });
+        });
     });
 });

@@ -1,4 +1,4 @@
-import type { BoundingBox, ReconstructInput, ReconstructOptions, ReconstructResult, TextBlock } from './types';
+import type { ReconstructInput, ReconstructOptions, ReconstructResult, TextBlock } from './types';
 import { mapObservationsToTextLines, mapTextLinesToParagraphs } from './utils/paragraphs';
 
 /**
@@ -32,23 +32,13 @@ export const formatTextBlocks = (textBlocks: TextBlock[], footerSymbol?: string)
  *
  * Converts observations into lines, groups lines into paragraphs, then formats text.
  */
-export const reconstructParagraphs = (
-    input: ReconstructInput,
-    options: ReconstructOptions = {},
-): ReconstructResult => {
-    const page: BoundingBox = {
-        height: input.page.height,
-        width: input.page.width,
-        x: input.page.dpiX,
-        y: input.page.dpiY,
-    };
-
-    const lines = mapObservationsToTextLines(input.observations, page, {
+export const reconstructParagraphs = (input: ReconstructInput, options: ReconstructOptions = {}): ReconstructResult => {
+    const lines = mapObservationsToTextLines(input.observations, input.page, {
         horizontalLines: input.layout?.horizontalLines,
         rectangles: input.layout?.rectangles,
-        ...(options.line || {}),
+        ...(options.line ?? {}),
     });
-    const paragraphs = mapTextLinesToParagraphs(lines, options.paragraph || {});
+    const paragraphs = mapTextLinesToParagraphs(lines, options.paragraph ?? {});
     const text = formatTextBlocks(paragraphs, options.format?.footerSymbol);
 
     return { lines, paragraphs, text };

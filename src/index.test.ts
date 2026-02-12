@@ -107,10 +107,19 @@ describe('index', () => {
 
         it('should match the low-level pipeline output', () => {
             const ocrData = testData['0.jpg'];
-            const lines = mapObservationsToTextLines(ocrData.observations, ocrData.dpi, {
-                horizontalLines: ocrData.horizontalLines,
-                rectangles: ocrData.rectangles,
-            });
+            const lines = mapObservationsToTextLines(
+                ocrData.observations,
+                {
+                    dpiX: ocrData.dpi.x,
+                    dpiY: ocrData.dpi.y,
+                    height: ocrData.dpi.height,
+                    width: ocrData.dpi.width,
+                },
+                {
+                    horizontalLines: ocrData.horizontalLines,
+                    rectangles: ocrData.rectangles,
+                },
+            );
             const paragraphs = mapTextLinesToParagraphs(lines);
             const text = formatTextBlocks(paragraphs, '___');
 
@@ -137,6 +146,43 @@ describe('index', () => {
             expect(result.lines).toEqual(lines);
             expect(result.paragraphs).toEqual(paragraphs);
             expect(result.text).toEqual(text);
+        });
+
+        it('should handle empty observations', () => {
+            const result = reconstructParagraphs({
+                observations: [],
+                page: {
+                    dpiX: 72,
+                    dpiY: 72,
+                    height: 1000,
+                    width: 800,
+                },
+            });
+
+            expect(result.lines).toEqual([]);
+            expect(result.paragraphs).toEqual([]);
+            expect(result.text).toBe('');
+        });
+
+        it('should handle missing layout context', () => {
+            const result = reconstructParagraphs({
+                observations: [
+                    {
+                        bbox: { height: 20, width: 280, x: 100, y: 120 },
+                        text: 'سطر تجريبي',
+                    },
+                ],
+                page: {
+                    dpiX: 72,
+                    dpiY: 72,
+                    height: 1000,
+                    width: 800,
+                },
+            });
+
+            expect(result.lines.length).toBe(1);
+            expect(result.paragraphs.length).toBe(1);
+            expect(result.text).toBe('سطر تجريبي');
         });
     });
 });

@@ -42,6 +42,7 @@
         "format": "biome format --write",
         "lint": "biome check",
         "postbuild": "bun run test:exports",
+        "review:diff": "git diff main -- src test/exports.test.ts > review-diff.txt",
         "snap": "WRITE_SNAPSHOTS=true bun test",
         "test:exports": "bun test test/exports.test.ts"
     },

@@ -7,5 +7,7 @@
  */
 export const resolveWithDefaults = <T extends object>(defaults: T, overrides?: Partial<T>): T => ({
     ...defaults,
-    ...(overrides ?? {}),
+    ...(overrides
+        ? (Object.fromEntries(Object.entries(overrides).filter(([, value]) => value !== undefined)) as Partial<T>)
+        : {}),
 });
