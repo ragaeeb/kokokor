@@ -1,6 +1,8 @@
 import type { CenteringOptions, Observation, PoetryDetectionOptions } from '@/types';
 
 import { DEFAULT_POETRY_OPTIONS, MAX_PROSE_WORD_COUNT, PROSE_PUNCTUATION_PATTERN } from './constants';
+import { isObservationCentered } from './layout';
+import { resolveWithDefaults } from './options';
 
 const DEFAULT_CENTER_TOLERANCE = DEFAULT_POETRY_OPTIONS.centerToleranceRatio ?? 0.05;
 const DEFAULT_MIN_MARGIN = DEFAULT_POETRY_OPTIONS.minMarginRatio ?? 0.1;
@@ -9,7 +11,6 @@ const DEFAULT_MIN_WORD_COUNT = DEFAULT_POETRY_OPTIONS.minWordCount ?? 2;
 const DEFAULT_PAIR_WIDTH_SIMILARITY = DEFAULT_POETRY_OPTIONS.pairWidthSimilarityRatio ?? 0.4;
 const DEFAULT_PAIR_WORD_SIMILARITY = DEFAULT_POETRY_OPTIONS.pairWordCountSimilarityRatio ?? 0.5;
 const DEFAULT_DENSITY_RATIO = DEFAULT_POETRY_OPTIONS.wordDensityComparisonRatio ?? 0.95;
-import { isObservationCentered } from './layout';
 
 /**
  * Calculates the average word density (words per pixel) for prose text in the document.
@@ -29,10 +30,41 @@ import { isObservationCentered } from './layout';
  * @param options.minWordCount - Minimum word count threshold for valid prose lines
  * @returns Average word density (words per pixel) for prose content, or 0 if no prose found
  */
-const resolveCenteringOptions = (options?: Partial<CenteringOptions>): CenteringOptions => ({
-    centerToleranceRatio: options?.centerToleranceRatio ?? DEFAULT_CENTER_TOLERANCE,
-    minMarginRatio: options?.minMarginRatio ?? DEFAULT_MIN_MARGIN,
-});
+const resolveCenteringOptions = (options?: Partial<CenteringOptions>) =>
+    resolveWithDefaults(
+        {
+            centerToleranceRatio: DEFAULT_CENTER_TOLERANCE,
+            minMarginRatio: DEFAULT_MIN_MARGIN,
+        },
+        options,
+    );
+
+const getWordCount = (text: string) => text.split(' ').length;
+
+const hasPoetryLikeDensity = (
+    obs: Observation,
+    wordCount: number,
+    imageWidth: number,
+    avgProseWordDensity: number,
+    minWidthRatioForMerged: number,
+    wordDensityComparisonRatio: number,
+) => {
+    if (obs.bbox.width <= imageWidth * minWidthRatioForMerged || avgProseWordDensity <= 0) {
+        return false;
+    }
+
+    const obsDensity = wordCount / obs.bbox.width;
+
+    if (obsDensity <= 0) {
+        return false;
+    }
+
+    const densityRatio = obsDensity / avgProseWordDensity;
+    const widthRatio = obs.bbox.width / imageWidth;
+    const requiredDensityRatio = widthRatio > 0.75 ? wordDensityComparisonRatio * 0.95 : 0.5;
+
+    return densityRatio < requiredDensityRatio;
+};
 
 export const calculateAverageProseDensity = (
     observations: Observation[],
@@ -92,21 +124,27 @@ export const isPoetryPair = (
     const minWordCount = options.minWordCount ?? DEFAULT_MIN_WORD_COUNT;
     const pairWidthSimilarityRatio = options.pairWidthSimilarityRatio ?? DEFAULT_PAIR_WIDTH_SIMILARITY;
     const pairWordCountSimilarityRatio = options.pairWordCountSimilarityRatio ?? DEFAULT_PAIR_WORD_SIMILARITY;
-    const words1 = obs1.text.split(' ').length;
-    const words2 = obs2.text.split(' ').length;
+    const words1 = getWordCount(obs1.text);
+    const words2 = getWordCount(obs2.text);
 
     // Basic validation
-    if (words1 < minWordCount || words2 < minWordCount) return false;
+    if (words1 < minWordCount || words2 < minWordCount) {
+        return false;
+    }
 
     // Check width similarity
     const avgWidth = (obs1.bbox.width + obs2.bbox.width) / 2;
     const widthDiffRatio = Math.abs(obs1.bbox.width - obs2.bbox.width) / avgWidth;
-    if (widthDiffRatio >= pairWidthSimilarityRatio) return false;
+    if (widthDiffRatio >= pairWidthSimilarityRatio) {
+        return false;
+    }
 
     // Check word count similarity
     const maxWords = Math.max(words1, words2);
     const wordCountDiffRatio = Math.abs(words1 - words2) / maxWords;
-    if (wordCountDiffRatio >= pairWordCountSimilarityRatio) return false;
+    if (wordCountDiffRatio >= pairWordCountSimilarityRatio) {
+        return false;
+    }
 
     // For pairs (hemistichs), the centering can be less strict, especially if
     // there is a clear visual gap separating them, which is a common poetic layout.
@@ -166,7 +204,7 @@ export const isWidePoeticLine = (
     avgProseWordDensity: number,
     options: PoetryDetectionOptions = DEFAULT_POETRY_OPTIONS,
 ) => {
-    const wordCount = obs.text.split(' ').length;
+    const wordCount = getWordCount(obs.text);
     const minWordCount = options.minWordCount ?? DEFAULT_MIN_WORD_COUNT;
     const wordDensityComparisonRatio = options.wordDensityComparisonRatio ?? DEFAULT_DENSITY_RATIO;
 
@@ -190,32 +228,16 @@ export const isWidePoeticLine = (
     // minWidthRatioForMerged is 0.6 by default
     const minWidthRatioForMerged = options.minWidthRatioForMerged ?? DEFAULT_MIN_WIDTH_RATIO_FOR_MERGED;
 
-    if (obs.bbox.width > imageWidth * minWidthRatioForMerged) {
-        // Only perform density comparison if we have a reliable prose baseline
-        if (avgProseWordDensity <= 0) {
-            return false;
-        }
-
-        const obsDensity = wordCount / obs.bbox.width;
-
-        // The observation density should be notably lower than prose density.
-        if (obsDensity > 0) {
-            const densityRatio = obsDensity / avgProseWordDensity;
-
-            // To prevent false positives from prose, the density check is tiered. The
-            // original threshold for very wide lines was too lenient. This version
-            // tightens it slightly, which works well in combination with the
-            // punctuation heuristic above.
-            const widthRatio = obs.bbox.width / imageWidth;
-            const requiredDensityRatio = widthRatio > 0.75 ? wordDensityComparisonRatio * 0.95 : 0.5;
-
-            if (densityRatio < requiredDensityRatio) {
-                return true;
-            }
-        }
-    }
-
-    return false;
+    // To prevent false positives from prose, the density check is tiered by width
+    // and requires sufficiently lower density than prose baseline.
+    return hasPoetryLikeDensity(
+        obs,
+        wordCount,
+        imageWidth,
+        avgProseWordDensity,
+        minWidthRatioForMerged,
+        wordDensityComparisonRatio,
+    );
 };
 
 /**
@@ -249,12 +271,7 @@ export const isPoeticGroup = (
     const minWidthRatioForMerged = options.minWidthRatioForMerged ?? DEFAULT_MIN_WIDTH_RATIO_FOR_MERGED;
 
     if (group.length === 1 && minWidthRatioForMerged !== null) {
-        return isWidePoeticLine(
-            group[0],
-            imageWidth,
-            avgProseWordDensity,
-            { ...options, minWidthRatioForMerged },
-        );
+        return isWidePoeticLine(group[0], imageWidth, avgProseWordDensity, { ...options, minWidthRatioForMerged });
     }
 
     if (group.length === 2) {

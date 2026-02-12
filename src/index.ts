@@ -1,4 +1,5 @@
-import type { TextBlock } from './types';
+import type { ReconstructInput, ReconstructOptions, ReconstructResult, TextBlock } from './types';
+import { mapObservationsToTextLines, mapTextLinesToParagraphs } from './utils/paragraphs';
 
 /**
  * Formats an array of text blocks into a readable string with proper paragraph breaks.
@@ -26,8 +27,26 @@ export const formatTextBlocks = (textBlocks: TextBlock[], footerSymbol?: string)
     return paragraphs.join('\n');
 };
 
+/**
+ * One-shot API for OCR paragraph reconstruction.
+ *
+ * Converts observations into lines, groups lines into paragraphs, then formats text.
+ */
+export const reconstructParagraphs = (input: ReconstructInput, options: ReconstructOptions = {}): ReconstructResult => {
+    const lines = mapObservationsToTextLines(input.observations, input.page, {
+        horizontalLines: input.layout?.horizontalLines,
+        rectangles: input.layout?.rectangles,
+        ...(options.line ?? {}),
+    });
+    const paragraphs = mapTextLinesToParagraphs(lines, options.paragraph ?? {});
+    const text = formatTextBlocks(paragraphs, options.format?.footerSymbol);
+
+    return { lines, paragraphs, text };
+};
+
 export * from './types';
 export { mergeObservations } from './utils/grouping';
 export { filterHorizontalLinesOutsideRectangles, mapMatrixToBoundingBox } from './utils/layout';
 export { calculateDPI } from './utils/marking';
+export { resolveWithDefaults } from './utils/options';
 export { flipAndAlignObservations, mapObservationsToTextLines, mapTextLinesToParagraphs } from './utils/paragraphs';

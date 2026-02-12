@@ -69,3 +69,40 @@ export const MAX_PROSE_WORD_COUNT = 25;
  * - Parentheses (())
  */
 export const PROSE_PUNCTUATION_PATTERN = /[،,؛;؟?۔.:()]/;
+
+/**
+ * Percentile used as the robust reference width for paragraph grouping.
+ */
+export const PARAGRAPH_WIDTH_PERCENTILE = 0.75;
+
+/**
+ * Percentile used for deriving the right-edge x baseline from candidate lines.
+ */
+export const PARAGRAPH_BASELINE_PERCENTILE = 0.25;
+
+/**
+ * Ratio of reference width used to detect right-edge indentation.
+ * This is the coarse page-scale component of indentation detection and is
+ * combined with a line-height floor for DPI resilience.
+ */
+export const PARAGRAPH_INDENT_THRESHOLD_RATIO = 0.04;
+
+/**
+ * Minimum pixel distance required before classifying a line as indented.
+ *
+ * This value is calibrated around 72 DPI coordinate spaces:
+ * - 3 px @ 72 DPI ~= 0.042 in (~1.06 mm)
+ * It acts only as a hard floor for tiny/noisy line-height inputs.
+ */
+export const PARAGRAPH_MIN_INDENT_PX = 3;
+
+/**
+ * Minimum indent floor expressed as a ratio of typical line height.
+ * Helps keep indentation thresholds stable across different coordinate scales.
+ */
+export const PARAGRAPH_MIN_INDENT_HEIGHT_RATIO = 0.15;
+
+/**
+ * Minimum width ratio for lines that can participate in indentation checks.
+ */
+export const PARAGRAPH_MIN_INDENT_CANDIDATE_WIDTH_RATIO = 0.7;

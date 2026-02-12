@@ -1,10 +1,17 @@
+<p align="center">
+  <img src="./icon.png" alt="kokokor logo" width="140" />
+</p>
+
 # kokokor
 
+[![npm version](https://img.shields.io/npm/v/kokokor)](https://www.npmjs.com/package/kokokor)
 [![wakatime](https://wakatime.com/badge/user/a0b906ce-b8e7-4463-8bce-383238df6d4b/project/d7287da8-3536-4aaa-a706-74f2ee8b8e23.svg)](https://wakatime.com/badge/user/a0b906ce-b8e7-4463-8bce-383238df6d4b/project/d7287da8-3536-4aaa-a706-74f2ee8b8e23)
 ![Bun](https://img.shields.io/badge/Bun-%23000000.svg?style=for-the-badge&logo=bun&logoColor=white)
 [![Node.js CI](https://github.com/ragaeeb/kokokor/actions/workflows/build.yml/badge.svg)](https://github.com/ragaeeb/kokokor/actions/workflows/build.yml)
 ![GitHub License](https://img.shields.io/github/license/ragaeeb/kokokor)
 ![GitHub Release](https://img.shields.io/github/v/release/ragaeeb/kokokor)
+[![semantic-release](https://img.shields.io/badge/semantic--release-automatic-e10079?logo=semantic-release)](https://github.com/semantic-release/semantic-release)
+[![npm type definitions](https://img.shields.io/npm/types/kokokor)](https://www.npmjs.com/package/kokokor)
 [![codecov](https://codecov.io/gh/ragaeeb/kokokor/graph/badge.svg?token=IIGTM9JSR3)](https://codecov.io/gh/ragaeeb/kokokor)
 [![Size](https://deno.bundlejs.com/badge?q=kokokor@latest&badge=detailed)](https://bundlejs.com/?q=kokokor%40latest)
 ![typescript](https://badgen.net/badge/icon/typescript?icon=typescript&label&color=blue)
@@ -48,11 +55,12 @@ bun add kokokor
 ### Basic Usage
 
 ```typescript
-import { formatTextBlocks, mapObservationsToTextLines, mapTextLinesToParagraphs } from 'kokokor';
+import { reconstructParagraphs } from 'kokokor';
 
 // Example OCR result
 const ocrResult = {
-    dpi: { x: 300, y: 300, width: 2480, height: 3508 },
+    dpi: { x: 300, y: 300 },
+    page: { width: 2480, height: 3508 },
     observations: [
         { text: 'This is the first', bbox: { x: 100, y: 100, width: 200, height: 20 } },
         { text: 'line of text.', bbox: { x: 310, y: 100, width: 150, height: 20 } },
@@ -60,18 +68,33 @@ const ocrResult = {
     ],
 };
 
-// Step 1: Convert observations to text lines
-const textLines = mapObservationsToTextLines(ocrResult.observations, ocrResult.dpi, {});
+const result = reconstructParagraphs({
+    observations: ocrResult.observations,
+    page: {
+        dpiX: ocrResult.dpi.x,
+        dpiY: ocrResult.dpi.y,
+        height: ocrResult.page.height,
+        width: ocrResult.page.width,
+    },
+});
 
-// Step 2: Group text lines into paragraphs
-const paragraphs = mapTextLinesToParagraphs(textLines);
-
-// Step 3: Format as readable text
-const reconstructedText = formatTextBlocks(paragraphs);
-console.log(reconstructedText);
+console.log(result.text);
 // Output:
 // This is the first line of text.
 // This is a new paragraph.
+```
+
+### Low-Level Pipeline (Advanced)
+
+```typescript
+import { formatTextBlocks, mapObservationsToTextLines, mapTextLinesToParagraphs } from 'kokokor';
+
+const textLines = mapObservationsToTextLines(observations, dpi, options);
+const paragraphs = mapTextLinesToParagraphs(textLines, {
+    verticalJumpFactor: 2,
+    widthTolerance: 0.85,
+});
+const reconstructedText = formatTextBlocks(paragraphs);
 ```
 
 ### Advanced Configuration
@@ -109,7 +132,10 @@ const options = {
 
 // Process with advanced options
 const textLines = mapObservationsToTextLines(observations, dpi, options);
-const paragraphs = mapTextLinesToParagraphs(textLines, 2, 0.85); // verticalJumpFactor=2, widthTolerance=0.85
+const paragraphs = mapTextLinesToParagraphs(textLines, {
+    verticalJumpFactor: 2,
+    widthTolerance: 0.85,
+});
 ```
 
 ### Working with Surya OCR Results
@@ -161,7 +187,16 @@ const relevantLines = filterHorizontalLinesOutsideRectangles(
 
 ### Main Processing Functions
 
-#### `mapObservationsToTextLines(observations: Observation[], dpi: BoundingBox, options: MapObservationsToTextLinesOptions): TextBlock[]`
+#### `reconstructParagraphs(input: ReconstructInput, options?: ReconstructOptions): ReconstructResult`
+
+One-shot API that runs the complete reconstruction pipeline:
+1. observations -> lines
+2. lines -> paragraphs
+3. paragraphs -> formatted text
+
+Recommended for most clients.
+
+#### `mapObservationsToTextLines(observations: Observation[], page: PageContext, options: MapObservationsToTextLinesOptions): TextBlock[]`
 
 Converts OCR observations into structured text lines with metadata.
 
@@ -173,7 +208,7 @@ Groups observations into lines based on vertical proximity, applies centering de
     - `options`: Configuration options for text line processing
 - **Returns:** Array of text blocks with metadata (centering, headings, footnotes, poetry)
 
-#### `mapTextLinesToParagraphs(textLines: TextBlock[], verticalJumpFactor?: number, widthTolerance?: number): TextBlock[]`
+#### `mapTextLinesToParagraphs(textLines: TextBlock[], options?: Partial<ParagraphOptions>): TextBlock[]`
 
 Groups text lines into coherent paragraphs, handling both prose and poetry.
 
@@ -181,8 +216,8 @@ Prose lines are grouped into paragraphs based on vertical spacing and line width
 
 - **Parameters:**
     - `textLines`: Array of text lines to group into paragraphs
-    - `verticalJumpFactor`: Factor for detecting paragraph breaks based on vertical spacing (default: 2)
-    - `widthTolerance`: Threshold for identifying "short" lines that indicate paragraph breaks (default: 0.85)
+    - `options.verticalJumpFactor`: Factor for detecting paragraph breaks based on vertical spacing (default: 2)
+    - `options.widthTolerance`: Threshold for identifying "short" lines that indicate paragraph breaks (default: 0.85)
 - **Returns:** Array of text blocks representing complete paragraphs
 
 #### `formatTextBlocks(textBlocks: TextBlock[], footerSymbol?: string): string`
