@@ -87,19 +87,25 @@ export const filterNoisyObservations = (o: Observation, contentFilter: 'any' | '
 const sharesTextLineVertically = (first: Observation, second: Observation) => {
     const firstBottom = first.bbox.y + first.bbox.height;
     const secondBottom = second.bbox.y + second.bbox.height;
-    return first.bbox.y < secondBottom && second.bbox.y < firstBottom;
+    const verticalGap = Math.max(first.bbox.y - secondBottom, second.bbox.y - firstBottom, 0);
+
+    // Narrow numeric table cells are sometimes placed immediately above the
+    // Arabic label's box instead of overlapping it. Keep cells within one
+    // compact box height; line grouping will still decide whether they belong
+    // to the same physical row.
+    return verticalGap <= Math.min(first.bbox.height, second.bbox.height);
 };
 
+const REFERENCE_FRAGMENT_PATTERN = /^[\p{Script=Arabic}\p{Number}\p{Mark}\s()[\]{}،؛؟.,:;/\\\-–—«»'"’“”]+$/u;
+
 const isUsefulNumericFragment = (observation: Observation, arabicObservations: Observation[]) => {
-    const numberCount = [...observation.text.normalize('NFKC')].filter((character) =>
-        /\p{Number}/u.test(character),
-    ).length;
-    if (numberCount === 0) {
+    const normalizedText = observation.text.normalize('NFKC');
+    const numberCount = [...normalizedText].filter((character) => /\p{Number}/u.test(character)).length;
+    if (numberCount === 0 || !REFERENCE_FRAGMENT_PATTERN.test(normalizedText)) {
         return false;
     }
     return (
-        numberCount >= 2 ||
-        hasArabicText(observation.text, 1) ||
+        hasArabicText(normalizedText, 1) ||
         arabicObservations.some((arabicObservation) => sharesTextLineVertically(observation, arabicObservation))
     );
 };
@@ -119,7 +125,10 @@ export const filterObservationsByContent = (observations: Observation[], content
         return [];
     }
     const arabicObservationSet = new Set(arabicObservations);
-    return meaningful.filter(
+    const arabicContentCandidates = observations.filter(
+        (observation) => filterNoisyObservations(observation) || /\p{Number}/u.test(observation.text.normalize('NFKC')),
+    );
+    return arabicContentCandidates.filter(
         (observation) =>
             arabicObservationSet.has(observation) ||
             (!hasNonArabicLetters(observation.text) && isUsefulNumericFragment(observation, arabicObservations)),

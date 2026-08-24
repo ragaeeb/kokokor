@@ -25,6 +25,53 @@ import {
 import { resolveWithDefaults } from './options';
 import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
 
+const EXPLICIT_FOOTNOTE_START_PATTERN = /^\s*[(﴾]\s*[0-9٠-٩۰-۹]{1,3}\s*[)﴿]/u;
+const ATTRIBUTED_BODY_RESUMPTION_PATTERN = /^قال\s+[^:：]{2,120}[:：]/u;
+
+/**
+ * Some books place a citation block below a rule, resume the body, then put a
+ * numbered note at the bottom of the same page. A single y-threshold initially
+ * marks the whole suffix as footnotes. When the geometry clearly shows a short
+ * citation ending, a substantial body run, and a later explicit note marker,
+ * restore that middle run to body text.
+ */
+const restoreInterleavedBodyLines = (lines: TextBlock[], pageWidth: number) => {
+    const firstFootnoteIndex = lines.findIndex((line) => line.isFootnote);
+    if (firstFootnoteIndex < 0 || EXPLICIT_FOOTNOTE_START_PATTERN.test(lines[firstFootnoteIndex].text)) {
+        return lines;
+    }
+
+    const laterExplicitFootnoteOffset = lines
+        .slice(firstFootnoteIndex + 1)
+        .findIndex((line) => EXPLICIT_FOOTNOTE_START_PATTERN.test(line.text));
+    if (laterExplicitFootnoteOffset < 0) {
+        return lines;
+    }
+    const laterExplicitFootnoteIndex = firstFootnoteIndex + laterExplicitFootnoteOffset + 1;
+    const bodyStartIndex =
+        lines.findIndex(
+            (line, index) =>
+                index >= firstFootnoteIndex &&
+                index + 2 < laterExplicitFootnoteIndex &&
+                line.bbox.width <= pageWidth * 0.35 &&
+                lines[index + 1].bbox.width >= pageWidth * 0.5,
+        ) + 1;
+    if (bodyStartIndex <= firstFootnoteIndex || bodyStartIndex >= laterExplicitFootnoteIndex) {
+        return lines;
+    }
+    if (!ATTRIBUTED_BODY_RESUMPTION_PATTERN.test(lines[bodyStartIndex].text)) {
+        return lines;
+    }
+
+    return lines.map((line, index) => {
+        if (index < bodyStartIndex || index >= laterExplicitFootnoteIndex) {
+            return line;
+        }
+        const { isFootnote: _, ...bodyLine } = line;
+        return bodyLine;
+    });
+};
+
 type ResolvedParagraphOptions = Required<ParagraphOptions>;
 
 const DEFAULT_PARAGRAPH_OPTIONS: ResolvedParagraphOptions = {
@@ -188,7 +235,7 @@ export const mapObservationsToTextLines = (
         return mergeObservations(group, delimiter);
     });
 
-    return merged as TextBlock[];
+    return restoreInterleavedBodyLines(merged as TextBlock[], page.width);
 };
 
 /**

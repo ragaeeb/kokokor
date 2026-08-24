@@ -60,13 +60,34 @@ const shouldSeparateLines = <T extends { bbox: BoundingBox }>(
     spacingAnalysis: { minIntraLineGap: number; typicalGap: number },
 ) => {
     const dy = current.bbox.y - prev.bbox.y;
+    const prevCenterY = prev.bbox.y + prev.bbox.height / 2;
+    const currentCenterY = current.bbox.y + current.bbox.height / 2;
+    const centerDistance = Math.abs(currentCenterY - prevCenterY);
+    const minimumHeight = Math.min(prev.bbox.height, current.bbox.height);
+    const maximumHeight = Math.max(prev.bbox.height, current.bbox.height);
+    const prevRight = prev.bbox.x + prev.bbox.width;
+    const currentRight = current.bbox.x + current.bbox.width;
+    const horizontalGap = Math.max(current.bbox.x - prevRight, prev.bbox.x - currentRight, 0);
+    const areSeparateColumns = horizontalGap > minimumHeight;
+
+    // OCR engines often give the narrow numeric column of an index row a much
+    // shorter box than the Arabic label. Compare against the taller box only
+    // for horizontally separated columns. This joins the cell to its nearest
+    // row without letting it bridge into the following row transitively.
+    if ((areSeparateColumns && centerDistance <= maximumHeight * 0.85) || centerDistance <= minimumHeight * 0.5) {
+        return false;
+    }
 
     // Primary threshold based on average height
     const avgHeight = (prev.bbox.height + current.bbox.height) * 0.5;
     const baseThresh = avgHeight * effectiveFactor;
     const threshold = baseThresh + effectiveYTolerance;
 
-    let shouldSeparate = dy > threshold;
+    // Compare vertical centers for the general case. Top edges are unstable
+    // when one OCR box contains tall diacritics or a compact citation cell;
+    // center distance separates neighboring rows without letting those cells
+    // bridge two rows transitively.
+    let shouldSeparate = centerDistance > threshold;
 
     // Secondary check based on document spacing patterns
     if (!shouldSeparate && spacingAnalysis.minIntraLineGap > 0 && dy > spacingAnalysis.minIntraLineGap) {
@@ -101,18 +122,21 @@ const assignLineIndices = <T extends { bbox: BoundingBox }>(
     const marked: (T & { index: number })[] = new Array(len);
 
     let currentLine = 0;
-    let prev = sortedItems[0];
-    marked[0] = { ...prev, index: currentLine };
+    let lineAnchor = sortedItems[0];
+    marked[0] = { ...lineAnchor, index: currentLine };
 
     for (let i = 1; i < len; i++) {
         const item = sortedItems[i];
 
-        if (shouldSeparateLines(prev, item, effectiveFactor, effectiveYTolerance, spacingAnalysis)) {
+        // Compare every candidate with the observation that opened the current
+        // line. Pairwise chaining can otherwise let a compact index cell bridge
+        // two neighboring rows when its box overlaps both of them.
+        if (shouldSeparateLines(lineAnchor, item, effectiveFactor, effectiveYTolerance, spacingAnalysis)) {
             currentLine += 1;
+            lineAnchor = item;
         }
 
         marked[i] = { ...item, index: currentLine };
-        prev = item;
     }
 
     return marked;
@@ -241,17 +265,42 @@ type ParagraphMetrics = {
     listStartIndentThreshold: number;
     minIndentCandidateWidth: number;
     shouldUseListStartSignal: boolean;
+    shouldUseRtlTableEntryStartSignal: boolean;
     shouldUseTableOfContentsSignal: boolean;
     thresholdWidth: number;
 };
 
 const TABLE_OF_CONTENTS_MIN_ENTRY_ENDS = 4;
 const TABLE_OF_CONTENTS_MIN_LEADERS = 3;
+const TABLE_OF_CONTENTS_DENSE_MIN_ENTRY_ENDS = 8;
+const TABLE_OF_CONTENTS_DENSE_ENTRY_END_RATIO = 0.75;
 const TABLE_OF_CONTENTS_LEADER_PATTERN = /\.{2,}/u;
 const TABLE_OF_CONTENTS_PAGE_END_PATTERN = /[0-9٠-٩۰-۹][\s.)\]}»]*$/u;
+const TABLE_OF_CONTENTS_ARABIC_ENTRY_START_PATTERN = /^\s*[0-9٠-٩۰-۹]{1,3}(?=\s|$)/u;
+const TABLE_OF_CONTENTS_HADITH_HEADER_PATTERN = /أطراف\s+الصفحة/u;
+const TABLE_OF_CONTENTS_ARABIC_HEADER_LABELS = ['الموضوع', 'الصفحة', 'الفائدة', 'الاسم', 'رقم'] as const;
+const TABLE_OF_CONTENTS_NAMED_ENTRY_PATTERN = /^(?:مقدمة|الفصل|فصل|الخاتمة|الفهرس|فهرس)(?:\s|:|[.،])/u;
 
 const hasTableOfContentsEntryEnd = <T extends { text?: string }>(item: T) =>
     TABLE_OF_CONTENTS_PAGE_END_PATTERN.test(item.text?.trim() ?? '');
+
+const hasArabicTableHeader = <T extends { text?: string }>(item: T) => {
+    const text = item.text ?? '';
+    return TABLE_OF_CONTENTS_ARABIC_HEADER_LABELS.filter((label) => text.includes(label)).length >= 2;
+};
+
+const hasTableOfContentsHeader = <T extends { text?: string }>(item: T) =>
+    hasArabicTableHeader(item) || TABLE_OF_CONTENTS_HADITH_HEADER_PATTERN.test(item.text ?? '');
+
+const hasArabicTableEntryStart = <T extends { text?: string }>(item: T) =>
+    TABLE_OF_CONTENTS_ARABIC_ENTRY_START_PATTERN.test(item.text?.trim() ?? '');
+
+const hasNamedTableOfContentsEntryStart = <T extends { text?: string }>(item: T) =>
+    TABLE_OF_CONTENTS_NAMED_ENTRY_PATTERN.test(item.text?.trim() ?? '');
+
+const shouldUseRtlTableEntryStartSignal = <T extends { text?: string }>(items: T[]) =>
+    items.some((item) => hasArabicTableHeader(item)) &&
+    items.filter((item) => hasTableOfContentsEntryEnd(item)).length >= 2;
 
 /**
  * Detects repeated leader-plus-page-number topology before applying entry-end
@@ -269,7 +318,16 @@ const shouldUseTableOfContentsSignal = <T extends { text?: string }>(items: T[])
             leaderCount++;
         }
     }
-    return entryEndCount >= TABLE_OF_CONTENTS_MIN_ENTRY_ENDS && leaderCount >= TABLE_OF_CONTENTS_MIN_LEADERS;
+    const hasLeaderTopology =
+        entryEndCount >= TABLE_OF_CONTENTS_MIN_ENTRY_ENDS && leaderCount >= TABLE_OF_CONTENTS_MIN_LEADERS;
+    const hasDenseNumericColumnTopology =
+        entryEndCount >= TABLE_OF_CONTENTS_DENSE_MIN_ENTRY_ENDS &&
+        entryEndCount / items.length >= TABLE_OF_CONTENTS_DENSE_ENTRY_END_RATIO;
+    const hasArabicTableTopology = shouldUseRtlTableEntryStartSignal(items);
+    const hasNamedEntryTopology =
+        entryEndCount >= 3 && items.filter((item) => hasNamedTableOfContentsEntryStart(item)).length >= 3;
+
+    return hasLeaderTopology || hasDenseNumericColumnTopology || hasArabicTableTopology || hasNamedEntryTopology;
 };
 
 const computeReferenceWidth = <T extends { bbox: BoundingBox }>(items: T[]) => {
@@ -375,6 +433,7 @@ const buildParagraphMetrics = <T extends { bbox: BoundingBox; text?: string }>(
             listStartBaselineX,
             listStartIndentThreshold,
         ),
+        shouldUseRtlTableEntryStartSignal: shouldUseRtlTableEntryStartSignal(items),
         shouldUseTableOfContentsSignal: shouldUseTableOfContentsSignal(items),
         thresholdWidth,
     };
@@ -522,6 +581,103 @@ const shouldAdvanceAfterShortLine = <T extends { bbox: BoundingBox }>(
     return index === 0 || breakReason !== 'indent';
 };
 
+const getTableOfContentsAdvance = <T extends { bbox: BoundingBox; text?: string }>(
+    item: T,
+    itemIndex: number,
+    breakReason: BreakReason,
+    thresholdWidth: number,
+) => {
+    const endedEntry = hasTableOfContentsEntryEnd(item);
+    const endedHeader = hasTableOfContentsHeader(item);
+    const endedLeadingHeader =
+        itemIndex === 0 && shouldAdvanceAfterShortLine(item, itemIndex, breakReason, thresholdWidth);
+
+    return { advance: endedEntry || endedHeader || endedLeadingHeader, endedEntry };
+};
+
+const isRtlTableEntryStart = <T extends { bbox: BoundingBox; text?: string }>(item: T, metrics: ParagraphMetrics) =>
+    metrics.shouldUseRtlTableEntryStartSignal &&
+    item.bbox.width >= metrics.thresholdWidth &&
+    (hasTableOfContentsEntryEnd(item) || hasArabicTableEntryStart(item));
+
+const resolveTableAwareBreakReason = <T extends { bbox: BoundingBox; text?: string }>(
+    items: T[],
+    itemIndex: number,
+    verticalJumpFactor: number,
+    metrics: ParagraphMetrics,
+    previousAdvancedTableOfContentsParagraph: boolean,
+) => {
+    if (previousAdvancedTableOfContentsParagraph) {
+        return null;
+    }
+
+    const breakReason = resolveBreakReason(items, itemIndex, verticalJumpFactor, metrics);
+    const previous = items[itemIndex - 1];
+    if (breakReason === 'indent' && previous && isRtlTableEntryStart(previous, metrics)) {
+        return null;
+    }
+
+    return breakReason;
+};
+
+const shouldStartRtlTableParagraph = <T extends { bbox: BoundingBox; text?: string }>(
+    items: T[],
+    itemIndex: number,
+    metrics: ParagraphMetrics,
+    shouldStartNextTableLine: boolean,
+) => {
+    if (!metrics.shouldUseRtlTableEntryStartSignal || itemIndex === 0) {
+        return false;
+    }
+
+    const item = items[itemIndex];
+    const previous = items[itemIndex - 1];
+    return (
+        isRtlTableEntryStart(item, metrics) ||
+        shouldStartNextTableLine ||
+        hasArabicTableHeader(item) ||
+        (isRtlTableEntryStart(previous, metrics) && item.bbox.width >= metrics.thresholdWidth)
+    );
+};
+
+const shouldStartNamedTableOfContentsEntry = <T extends { text?: string }>(
+    item: T,
+    itemIndex: number,
+    metrics: ParagraphMetrics,
+    previousAlreadyAdvanced: boolean,
+) =>
+    metrics.shouldUseTableOfContentsSignal &&
+    itemIndex > 0 &&
+    !previousAlreadyAdvanced &&
+    hasNamedTableOfContentsEntryStart(item);
+
+const shouldStartNextRtlTableLine = <T extends { bbox: BoundingBox; text?: string }>(
+    items: T[],
+    itemIndex: number,
+    breakReason: BreakReason,
+    metrics: ParagraphMetrics,
+    itemIsTableEntryStart: boolean,
+) => {
+    if (itemIsTableEntryStart) {
+        return false;
+    }
+
+    const item = items[itemIndex];
+    const next = items[itemIndex + 1];
+    if (!next) {
+        return false;
+    }
+
+    const itemIsCentered = (item as { isCentered?: boolean }).isCentered === true;
+    const nextIsCentered = (next as { isCentered?: boolean }).isCentered === true;
+    const isCenteredContinuationPair = itemIsCentered && nextIsCentered;
+    const isSectionMarker = /^\s*فصل(?:\s|\(|[0-9٠-٩۰-۹])/u.test(item.text?.trim() ?? '');
+    const nextLooksLikeEntryStart =
+        next.bbox.width >= metrics.thresholdWidth * 0.9 && !isCenteredContinuationPair && !isSectionMarker;
+
+    return nextLooksLikeEntryStart && shouldAdvanceAfterShortLine(item, itemIndex, breakReason, metrics.thresholdWidth);
+};
+
 /**
  * Groups items into paragraphs based on vertical spacing patterns and line width analysis.
  *
@@ -578,16 +734,26 @@ export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox; text?: str
 
     const out: (T & { index: number })[] = [];
     let index = 0;
-    let previousEndedTableOfContentsEntry = false;
+    let previousAdvancedTableOfContentsParagraph = false;
+    let shouldStartNextTableLine = false;
 
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const breakReason = previousEndedTableOfContentsEntry
-            ? null
-            : resolveBreakReason(items, i, verticalJumpFactor, metrics);
-        previousEndedTableOfContentsEntry = false;
+        const previousAlreadyAdvanced = previousAdvancedTableOfContentsParagraph;
+        const itemIsTableEntryStart = isRtlTableEntryStart(item, metrics);
+        const breakReason = resolveTableAwareBreakReason(
+            items,
+            i,
+            verticalJumpFactor,
+            metrics,
+            previousAdvancedTableOfContentsParagraph,
+        );
+        const startsTableParagraph = shouldStartRtlTableParagraph(items, i, metrics, shouldStartNextTableLine);
+        const startsNamedTableEntry = shouldStartNamedTableOfContentsEntry(item, i, metrics, previousAlreadyAdvanced);
+        previousAdvancedTableOfContentsParagraph = false;
+        shouldStartNextTableLine = false;
 
-        if (breakReason !== null) {
+        if (breakReason !== null || startsTableParagraph || startsNamedTableEntry) {
             index++;
         }
 
@@ -595,11 +761,24 @@ export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox; text?: str
 
         // Short lines normally trigger a break for the next line; however, if the
         // current line already started a paragraph via indent, avoid a second advance.
-        if (metrics.shouldUseTableOfContentsSignal) {
-            if (hasTableOfContentsEntryEnd(item)) {
+        if (metrics.shouldUseRtlTableEntryStartSignal) {
+            // In RTL index tables the leftmost page-number cell is normally
+            // merged at the end of the first physical line. Treat that line as
+            // the row start, then keep any indented continuation lines with it.
+            // A short continuation closes the row before the next entry.
+            shouldStartNextTableLine = shouldStartNextRtlTableLine(
+                items,
+                i,
+                breakReason,
+                metrics,
+                itemIsTableEntryStart,
+            );
+        } else if (metrics.shouldUseTableOfContentsSignal) {
+            const tableOfContentsAdvance = getTableOfContentsAdvance(item, i, breakReason, metrics.thresholdWidth);
+            if (tableOfContentsAdvance.advance) {
                 index++;
-                previousEndedTableOfContentsEntry = true;
             }
+            previousAdvancedTableOfContentsParagraph = tableOfContentsAdvance.advance;
         } else if (shouldAdvanceAfterShortLine(item, i, breakReason, metrics.thresholdWidth)) {
             index++;
         }

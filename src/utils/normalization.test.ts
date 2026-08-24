@@ -1,8 +1,23 @@
 import { describe, expect, it } from 'bun:test';
 
-import { mapOcrResultToRTLObservations, normalizeObservationsX } from './normalization';
+import { filterObservationsByContent, mapOcrResultToRTLObservations, normalizeObservationsX } from './normalization';
 
 describe('normalization', () => {
+    describe('filterObservationsByContent', () => {
+        it('keeps compact Arabic reference labels but rejects symbol-heavy ornament OCR', () => {
+            const observations = [
+                { bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'نص عربي مفيد' },
+                { bbox: { height: 20, width: 40, x: 10, y: 40 }, text: 'ج٥٤-' },
+                { bbox: { height: 20, width: 80, x: 10, y: 70 }, text: '٥@@@ج' },
+            ];
+
+            expect(filterObservationsByContent(observations, 'arabic').map((observation) => observation.text)).toEqual([
+                'نص عربي مفيد',
+                'ج٥٤-',
+            ]);
+        });
+    });
+
     describe('mapOcrResultToRTLObservations', () => {
         it('should correct the x-coordinates to be from the right', () => {
             const actual = mapOcrResultToRTLObservations(

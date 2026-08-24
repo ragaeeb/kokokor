@@ -1,6 +1,7 @@
 import type { BoundingBox, CenteringOptions, Observation } from '@/types';
 
 const MIN_FOOTNOTE_SEPARATOR_Y_RATIO = 0.15;
+const MIN_BODY_OBSERVATION_WIDTH_RATIO = 0.4;
 
 /**
  * Determines if an observation is centered on the page with sufficient whitespace around it.
@@ -123,7 +124,12 @@ const overlapsVertically = (first: BoundingBox, second: BoundingBox) => {
         return false;
     }
     const relativePosition = (firstCenterY - second.y) / second.height;
-    return relativePosition >= 0.1 && relativePosition <= 0.9;
+    if (relativePosition >= 0.1 && relativePosition <= 0.9) {
+        return true;
+    }
+
+    const horizontalOverlap = Math.min(first.x + first.width, second.x + second.width) - Math.max(first.x, second.x);
+    return horizontalOverlap > 0 && second.width <= first.width * 0.4;
 };
 
 const areSimilarHorizontalRules = (first: BoundingBox, second: BoundingBox) => {
@@ -196,11 +202,33 @@ export const getFootnoteSeparatorY = (
             const lineCenterY = line.y + line.height / 2;
             const observationsAbove = context.observations.filter(
                 (observation) => observation.bbox.y + observation.bbox.height / 2 < lineCenterY,
-            ).length;
+            );
+            const headerUnderlineTolerance = pixelTolerance * 2;
+            const contentWellAboveLine = observationsAbove.filter(
+                (observation) => line.y - (observation.bbox.y + observation.bbox.height) > headerUnderlineTolerance,
+            );
+            const hasWideContentAboveLine = observationsAbove.some(
+                (observation) =>
+                    observation.bbox.y + observation.bbox.height <= line.y &&
+                    observation.bbox.width >= context.pageWidth * MIN_BODY_OBSERVATION_WIDTH_RATIO,
+            );
+            const hasMultipleContentRowsAboveLine = contentWellAboveLine.some((observation, index) =>
+                contentWellAboveLine.slice(index + 1).some((other) => {
+                    const centerDistance = Math.abs(
+                        observation.bbox.y + observation.bbox.height / 2 - (other.bbox.y + other.bbox.height / 2),
+                    );
+                    const rowTolerance = Math.max(
+                        headerUnderlineTolerance,
+                        Math.min(observation.bbox.height, other.bbox.height) * 0.5,
+                    );
+                    return centerDistance > rowTolerance;
+                }),
+            );
+            const hasBodyContentWellAboveLine = hasWideContentAboveLine || hasMultipleContentRowsAboveLine;
             const hasObservationBelow = context.observations.some(
                 (observation) => observation.bbox.y + observation.bbox.height / 2 > lineCenterY,
             );
-            return observationsAbove >= 2 && hasObservationBelow;
+            return observationsAbove.length >= 2 && hasBodyContentWellAboveLine && hasObservationBelow;
         })
         .toSorted((first, second) => first.y - second.y);
 
