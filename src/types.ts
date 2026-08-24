@@ -68,6 +68,19 @@ export type CenteringOptions = {
  */
 export type MapObservationsToTextLinesOptions = CenteringOptions & {
     /**
+     * Optional content policy applied before layout reconstruction.
+     *
+     * Use `arabic` for Arabic-only corpora to discard pages and observations
+     * without Arabic content. Numeric page/citation fragments are retained on
+     * Arabic pages, while Latin-letter artifacts are rejected. Compatibility
+     * ligatures are checked after Unicode NFKC normalization, so symbols such
+     * as `ﷺ` remain valid.
+     *
+     * @default "any"
+     */
+    contentFilter?: 'any' | 'arabic';
+
+    /**
      * Optional array of horizontal line elements detected in the document.
      * These are typically used to identify sections, headers, footers, or decorative elements.
      * When provided, text appearing below these lines may be classified as footnotes.

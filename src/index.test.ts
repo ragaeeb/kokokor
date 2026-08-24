@@ -97,7 +97,7 @@ describe('index', () => {
                 await expectationFile.write(actual);
             }
 
-            const expected = await expectationFile.text();
+            const expected = (await expectationFile.text()).replace(/\n$/u, '');
             expect(actual).toEqual(expected);
         });
     });

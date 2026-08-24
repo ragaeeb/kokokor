@@ -64,6 +64,39 @@ describe('paragraphs', () => {
 
             expect(log).toHaveBeenCalledTimes(2);
         });
+
+        it('should keep only observations containing real Arabic text when requested', () => {
+            const result = flipAndAlignObservations(
+                [
+                    { bbox: { height: 20, width: 100, x: 0, y: 0 }, text: '7 - ..' },
+                    { bbox: { height: 20, width: 100, x: 0, y: 30 }, text: 'ABC 123' },
+                    { bbox: { height: 20, width: 100, x: 0, y: 60 }, text: 'عربي' },
+                    { bbox: { height: 20, width: 100, x: 0, y: 90 }, text: 'ﷺ' },
+                ],
+                800,
+                72,
+                { contentFilter: 'arabic' },
+            );
+
+            expect(result.map((observation) => observation.text)).toEqual(['عربي', 'ﷺ']);
+        });
+
+        it('should preserve a page-number fragment aligned with an Arabic contents row', () => {
+            const result = flipAndAlignObservations(
+                [
+                    { bbox: { height: 44, width: 700, x: 100, y: 200 }, text: 'الفصل الأول' },
+                    { bbox: { height: 24, width: 50, x: 850, y: 210 }, text: '٤٣٢' },
+                    { bbox: { height: 24, width: 50, x: 40, y: 210 }, text: '1A' },
+                    { bbox: { height: 24, width: 100, x: 800, y: 300 }, text: '(١) (ص ٥٩).' },
+                    { bbox: { height: 20, width: 100, x: 0, y: 400 }, text: 'ABC 123' },
+                ],
+                1000,
+                72,
+                { contentFilter: 'arabic' },
+            );
+
+            expect(result.map((observation) => observation.text)).toEqual(['الفصل الأول', '٤٣٢', '(١) (ص ٥٩).']);
+        });
     });
 
     describe('mapObservationsToTextLines', () => {
@@ -131,7 +164,7 @@ describe('paragraphs', () => {
                     height: 1200,
                     width: 800,
                 },
-                { horizontalLines: [{ height: 2, width: 800, x: 0, y: 90 }] },
+                {},
             );
 
             expect(actual).toEqual([
@@ -142,7 +175,6 @@ describe('paragraphs', () => {
                         x: 100,
                         y: 100,
                     },
-                    isFootnote: true,
                     text: 'AB',
                 },
             ]);
@@ -150,9 +182,13 @@ describe('paragraphs', () => {
 
         it('should map the observation as a footnote', () => {
             const actual = mapObservationsToTextLines(
-                [{ bbox: { height: 20, width: 700, x: 0, y: 100 }, text: 'AB' }],
+                [
+                    { bbox: { height: 20, width: 700, x: 0, y: 100 }, text: 'AB' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 200 }, text: 'CD' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 350 }, text: 'EF' },
+                ],
                 defaultDpi,
-                { horizontalLines: [{ height: 2, width: 800, x: 0, y: 90 }] },
+                { horizontalLines: [{ height: 2, width: 800, x: 0, y: 300 }] },
             );
 
             expect(actual).toEqual([
@@ -163,50 +199,176 @@ describe('paragraphs', () => {
                         x: 100,
                         y: 100,
                     },
-                    isFootnote: true,
                     text: 'AB',
                 },
+                { bbox: { height: 20, width: 700, x: 100, y: 200 }, text: 'CD' },
+                { bbox: { height: 20, width: 700, x: 100, y: 350 }, isFootnote: true, text: 'EF' },
             ]);
         });
 
         it('should use the very last horizontal line to detect footnote', () => {
             const actual = mapObservationsToTextLines(
                 [
-                    { bbox: { height: 20, width: 700, x: 0, y: 10 }, text: 'AB' },
-                    { bbox: { height: 20, width: 700, x: 0, y: 100 }, text: 'CD' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 100 }, text: 'AB' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 200 }, text: 'CD' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 350 }, text: 'EF' },
                 ],
                 defaultDpi,
                 {
                     horizontalLines: [
                         { height: 2, width: 800, x: 0, y: 2 },
-                        { height: 2, width: 800, x: 0, y: 90 },
+                        { height: 2, width: 300, x: 450, y: 300 },
                     ],
                 },
             );
 
             expect(actual).toEqual([
-                { bbox: { height: 20, width: 700, x: 100, y: 10 }, text: 'AB' },
-                {
-                    bbox: {
-                        height: 20,
-                        width: 700,
-                        x: 100,
-                        y: 100,
-                    },
-                    isFootnote: true,
-                    text: 'CD',
-                },
+                { bbox: { height: 20, width: 700, x: 100, y: 100 }, text: 'AB' },
+                { bbox: { height: 20, width: 700, x: 100, y: 200 }, text: 'CD' },
+                { bbox: { height: 20, width: 700, x: 100, y: 350 }, isFootnote: true, text: 'EF' },
             ]);
+        });
+
+        it('should ignore decorative header rules when they do not separate body text', () => {
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 44, width: 220, x: 500, y: 80 }, text: 'الدر النضيد' },
+                    { bbox: { height: 56, width: 700, x: 100, y: 164 }, text: 'الحكمة والعقل' },
+                    { bbox: { height: 58, width: 700, x: 100, y: 225 }, text: 'هذا سطر آخر من المتن' },
+                ],
+                defaultDpi,
+                {
+                    horizontalLines: [
+                        { height: 5, width: 320, x: 313, y: 102 },
+                        { height: 2, width: 321, x: 312, y: 109 },
+                    ],
+                },
+            );
+
+            expect(actual.every((line) => !line.isFootnote)).toBeTrue();
+        });
+
+        it('should keep a high footnote separator when Arabic body and note text surround it', () => {
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 37, width: 500, x: 300, y: 94 }, text: 'مجموع الردود' },
+                    { bbox: { height: 60, width: 800, x: 100, y: 161 }, text: 'متن قصير فوق الحاشية' },
+                    { bbox: { height: 37, width: 900, x: 100, y: 262 }, text: 'تعليق الحاشية الأول' },
+                    { bbox: { height: 39, width: 900, x: 100, y: 301 }, text: 'تكملة تعليق الحاشية' },
+                ],
+                { ...defaultDpi, height: 1584, width: 1224 },
+                { horizontalLines: [{ height: 3, width: 337, x: 716, y: 248 }] },
+            );
+
+            expect(actual.map((line) => Boolean(line.isFootnote))).toEqual([false, false, true, true]);
+        });
+
+        it('should tolerate subpixel OCR overlap at a real footnote rule', () => {
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 40, width: 800, x: 100, y: 150 }, text: 'المتن الأول فوق الحاشية' },
+                    { bbox: { height: 94, width: 800, x: 100, y: 210 }, text: 'المتن الثاني فوق الحاشية' },
+                    { bbox: { height: 45, width: 850, x: 100, y: 303.5 }, text: 'تخريج الحديث في الحاشية' },
+                ],
+                defaultDpi,
+                { horizontalLines: [{ height: 4, width: 350, x: 500, y: 300 }] },
+            );
+
+            expect(actual.map((line) => Boolean(line.isFootnote))).toEqual([false, false, true]);
+        });
+
+        it('should ignore a page-edge rule when validating a nearby footnote separator', () => {
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 40, width: 650, x: 100, y: 150 }, text: 'المتن الأول فوق الحاشية' },
+                    { bbox: { height: 40, width: 650, x: 100, y: 250 }, text: 'المتن الثاني فوق الحاشية' },
+                    { bbox: { height: 40, width: 300, x: 450, y: 850 }, text: 'تعليق الحاشية' },
+                ],
+                { ...defaultDpi, height: 1000 },
+                {
+                    horizontalLines: [
+                        { height: 3, width: 300, x: 450, y: 820 },
+                        { height: 2, width: 310, x: 455, y: 998 },
+                    ],
+                },
+            );
+
+            expect(actual.map((line) => Boolean(line.isFootnote))).toEqual([false, false, true]);
+        });
+
+        it('should ignore paired rules that frame a centered section heading', () => {
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 44, width: 700, x: 250, y: 115 }, text: 'فتاوى فضيلة الشيخ' },
+                    { bbox: { height: 60, width: 460, x: 380, y: 311 }, text: 'منهجية جمع الكتاب' },
+                    { bbox: { height: 49, width: 850, x: 180, y: 485 }, text: 'أولا جمع مادة الكتاب' },
+                    { bbox: { height: 48, width: 850, x: 180, y: 582 }, text: 'المواد المسموعة' },
+                ],
+                { ...defaultDpi, height: 1584, width: 1224 },
+                {
+                    horizontalLines: [
+                        { height: 2, width: 257, x: 484, y: 269 },
+                        { height: 3, width: 345, x: 452, y: 431 },
+                    ],
+                },
+            );
+
+            expect(actual.every((line) => !line.isFootnote)).toBeTrue();
+        });
+
+        it('should ignore paired title rules when the OCR box touches the frame', () => {
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 25, width: 100, x: 350, y: 50 }, text: 'رقم الصفحة' },
+                    { bbox: { height: 50, width: 300, x: 250, y: 115 }, text: 'عنوان الكتاب' },
+                    { bbox: { height: 50, width: 650, x: 75, y: 250 }, text: 'السطر الأول من المحتوى' },
+                    { bbox: { height: 50, width: 650, x: 75, y: 350 }, text: 'السطر الثاني من المحتوى' },
+                ],
+                { ...defaultDpi, height: 1000 },
+                {
+                    horizontalLines: [
+                        { height: 3, width: 320, x: 240, y: 100 },
+                        { height: 3, width: 320, x: 240, y: 180 },
+                    ],
+                },
+            );
+
+            expect(actual.every((line) => !line.isFootnote)).toBeTrue();
+        });
+
+        it('should ignore the top edge of a framed scanned insert', () => {
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 25, width: 500, x: 300, y: 97 }, text: 'جماعة واحدة لا جماعات' },
+                    { bbox: { height: 53, width: 600, x: 280, y: 175 }, text: 'صورة خطية من مقدمة الشيخ' },
+                    { bbox: { height: 57, width: 700, x: 260, y: 289 }, text: 'بسم الله الرحمن الرحيم' },
+                    { bbox: { height: 70, width: 700, x: 260, y: 403 }, text: 'نص المقدمة الخطية' },
+                    { bbox: { height: 70, width: 700, x: 260, y: 1450 }, text: 'تكملة النص الخطي' },
+                ],
+                { ...defaultDpi, height: 1584, width: 1224 },
+                {
+                    horizontalLines: [
+                        { height: 7, width: 694, x: 286, y: 247 },
+                        { height: 7, width: 696, x: 279, y: 1408 },
+                    ],
+                },
+            );
+
+            expect(actual.every((line) => !line.isFootnote)).toBeTrue();
         });
 
         it('should ignore the horizontal lines that are part of the rectangle', () => {
             const actual = mapObservationsToTextLines(
-                [{ bbox: { height: 20, width: 700, x: 0, y: 250 }, text: 'AB' }],
+                [
+                    { bbox: { height: 20, width: 700, x: 0, y: 150 }, text: 'AB' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 220 }, text: 'CD' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 350 }, text: 'EF' },
+                ],
                 defaultDpi,
                 {
                     horizontalLines: [
                         { height: 2, width: 800, x: 0, y: 2 },
-                        { height: 2, width: 800, x: 0, y: 200 },
+                        { height: 2, width: 800, x: 0, y: 300 },
                         { height: 2, width: 800, x: 0, y: 98 },
                     ],
                     rectangles: [{ height: 100, width: 800, x: 0, y: 0 }],
@@ -214,8 +376,28 @@ describe('paragraphs', () => {
             );
 
             expect(actual).toEqual([
-                { bbox: { height: 20, width: 700, x: 100, y: 250 }, isFootnote: true, text: 'AB' },
+                { bbox: { height: 20, width: 700, x: 100, y: 150 }, text: 'AB' },
+                { bbox: { height: 20, width: 700, x: 100, y: 220 }, text: 'CD' },
+                { bbox: { height: 20, width: 700, x: 100, y: 350 }, isFootnote: true, text: 'EF' },
             ]);
+        });
+
+        it('should ignore a full-height border artifact when selecting headings and footnote rules', () => {
+            const actual = mapObservationsToTextLines(
+                [
+                    { bbox: { height: 50, width: 850, x: 100, y: 1200 }, text: 'متن الصفحة قبل الحاشية' },
+                    { bbox: { height: 50, width: 850, x: 100, y: 1350 }, text: 'آخر سطر من متن الصفحة' },
+                    { bbox: { height: 37, width: 900, x: 100, y: 1493 }, text: 'تخريج الحديث في الحاشية' },
+                ],
+                { ...defaultDpi, height: 1684, width: 1190 },
+                {
+                    horizontalLines: [{ height: 5, width: 356, x: 679, y: 1472 }],
+                    rectangles: [{ height: 1684, width: 629, x: 532, y: 0 }],
+                },
+            );
+
+            expect(actual.map((line) => Boolean(line.isFootnote))).toEqual([false, false, true]);
+            expect(actual.every((line) => !line.isHeading)).toBeTrue();
         });
 
         it('should map the observation as a heading', () => {

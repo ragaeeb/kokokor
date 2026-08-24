@@ -241,7 +241,35 @@ type ParagraphMetrics = {
     listStartIndentThreshold: number;
     minIndentCandidateWidth: number;
     shouldUseListStartSignal: boolean;
+    shouldUseTableOfContentsSignal: boolean;
     thresholdWidth: number;
+};
+
+const TABLE_OF_CONTENTS_MIN_ENTRY_ENDS = 4;
+const TABLE_OF_CONTENTS_MIN_LEADERS = 3;
+const TABLE_OF_CONTENTS_LEADER_PATTERN = /\.{2,}/u;
+const TABLE_OF_CONTENTS_PAGE_END_PATTERN = /[0-9٠-٩۰-۹][\s.)\]}»]*$/u;
+
+const hasTableOfContentsEntryEnd = <T extends { text?: string }>(item: T) =>
+    TABLE_OF_CONTENTS_PAGE_END_PATTERN.test(item.text?.trim() ?? '');
+
+/**
+ * Detects repeated leader-plus-page-number topology before applying entry-end
+ * paragraph breaks. Requiring several examples avoids treating isolated prose
+ * citations as contents rows.
+ */
+const shouldUseTableOfContentsSignal = <T extends { text?: string }>(items: T[]) => {
+    let entryEndCount = 0;
+    let leaderCount = 0;
+    for (const item of items) {
+        if (hasTableOfContentsEntryEnd(item)) {
+            entryEndCount++;
+        }
+        if (TABLE_OF_CONTENTS_LEADER_PATTERN.test(item.text ?? '')) {
+            leaderCount++;
+        }
+    }
+    return entryEndCount >= TABLE_OF_CONTENTS_MIN_ENTRY_ENDS && leaderCount >= TABLE_OF_CONTENTS_MIN_LEADERS;
 };
 
 const computeReferenceWidth = <T extends { bbox: BoundingBox }>(items: T[]) => {
@@ -321,7 +349,7 @@ const shouldUseListStartSignal = <T extends { bbox: BoundingBox }>(
     );
 };
 
-const buildParagraphMetrics = <T extends { bbox: BoundingBox }>(
+const buildParagraphMetrics = <T extends { bbox: BoundingBox; text?: string }>(
     items: T[],
     widthTolerance: number,
 ): ParagraphMetrics => {
@@ -347,6 +375,7 @@ const buildParagraphMetrics = <T extends { bbox: BoundingBox }>(
             listStartBaselineX,
             listStartIndentThreshold,
         ),
+        shouldUseTableOfContentsSignal: shouldUseTableOfContentsSignal(items),
         thresholdWidth,
     };
 };
@@ -370,7 +399,22 @@ const hasVerticalBreakSignal = <T extends { bbox: BoundingBox }>(
         }
 
         const gap = item.bbox.y - prev.bbox.y;
-        return gap > prev.bbox.height * verticalJumpFactor;
+        if (gap > prev.bbox.height * verticalJumpFactor) {
+            return true;
+        }
+
+        if (items.length < 3) {
+            return false;
+        }
+
+        const whitespaceGap = item.bbox.y - (prev.bbox.y + prev.bbox.height);
+        const next = items[index + 1];
+        const nextWhitespaceGap = next.bbox.y - (item.bbox.y + item.bbox.height);
+        const minimumWhitespace = Math.min(prev.bbox.height, item.bbox.height) * 0.35;
+
+        return (
+            whitespaceGap >= minimumWhitespace && whitespaceGap > Math.max(1, nextWhitespaceGap) * verticalJumpFactor
+        );
     }
 
     const prevPrev = items[index - 2];
@@ -522,7 +566,7 @@ const shouldAdvanceAfterShortLine = <T extends { bbox: BoundingBox }>(
  * // Result: First two lines index: 0, third line index: 1
  * ```
  */
-export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox }>(
+export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox; text?: string }>(
     items: T[],
     verticalJumpFactor: number,
     widthTolerance: number,
@@ -534,10 +578,14 @@ export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox }>(
 
     const out: (T & { index: number })[] = [];
     let index = 0;
+    let previousEndedTableOfContentsEntry = false;
 
     for (let i = 0; i < items.length; i++) {
         const item = items[i];
-        const breakReason = resolveBreakReason(items, i, verticalJumpFactor, metrics);
+        const breakReason = previousEndedTableOfContentsEntry
+            ? null
+            : resolveBreakReason(items, i, verticalJumpFactor, metrics);
+        previousEndedTableOfContentsEntry = false;
 
         if (breakReason !== null) {
             index++;
@@ -547,7 +595,12 @@ export const indexItemsAsParagraphs = <T extends { bbox: BoundingBox }>(
 
         // Short lines normally trigger a break for the next line; however, if the
         // current line already started a paragraph via indent, avoid a second advance.
-        if (shouldAdvanceAfterShortLine(item, i, breakReason, metrics.thresholdWidth)) {
+        if (metrics.shouldUseTableOfContentsSignal) {
+            if (hasTableOfContentsEntryEnd(item)) {
+                index++;
+                previousEndedTableOfContentsEntry = true;
+            }
+        } else if (shouldAdvanceAfterShortLine(item, i, breakReason, metrics.thresholdWidth)) {
             index++;
         }
     }

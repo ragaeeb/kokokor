@@ -9,10 +9,15 @@ import type {
 
 import { DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS, DEFAULT_POETRY_OPTIONS } from './constants';
 import { groupByIndex, mergeGroupedObservations, mergeObservations, sortGroupsHorizontally } from './grouping';
-import { getLastHorizontalLineY, isBoundingBoxContained, isObservationCentered } from './layout';
+import {
+    filterStructuralRectangles,
+    getFootnoteSeparatorY,
+    isBoundingBoxContained,
+    isObservationCentered,
+} from './layout';
 import { indexItemsAsLines, indexItemsAsParagraphs } from './marking';
 import {
-    filterNoisyObservations,
+    filterObservationsByContent,
     mapOcrResultToRTLObservations,
     normalizeObservationsX,
     simplifyObservations,
@@ -44,9 +49,9 @@ export const flipAndAlignObservations = (
     observations: Observation[],
     imageWidth: number,
     dpiX: number,
-    options: Partial<Pick<MapObservationsToTextLinesOptions, 'isRTL' | 'log'>> = {},
+    options: Partial<Pick<MapObservationsToTextLinesOptions, 'contentFilter' | 'isRTL' | 'log'>> = {},
 ) => {
-    observations = observations.filter(filterNoisyObservations);
+    observations = filterObservationsByContent(observations, options.contentFilter);
 
     if (observations.length === 0) {
         return [];
@@ -95,6 +100,8 @@ export const mapObservationsToTextLines = (
         return [];
     }
 
+    const structuralRectangles = filterStructuralRectangles(options.rectangles || [], page);
+
     if (options.log) {
         options.log(
             'indexObservationsAsLines',
@@ -105,9 +112,10 @@ export const mapObservationsToTextLines = (
         );
     }
 
-    const footerLineY = getLastHorizontalLineY(
-        options.rectangles || [],
+    const footerLineY = getFootnoteSeparatorY(
+        structuralRectangles,
         options.horizontalLines || [],
+        { observations, pageHeight: page.height, pageWidth: page.width },
         options.pixelTolerance,
     );
     const avgProseWordDensity = calculateAverageProseDensity(
@@ -119,7 +127,7 @@ export const mapObservationsToTextLines = (
         (o) => {
             const e: TextBlock & { index: number } = { ...o };
 
-            const isObservationInsideRectangle = options.rectangles?.some((rectangle) =>
+            const isObservationInsideRectangle = structuralRectangles.some((rectangle) =>
                 isBoundingBoxContained(o.bbox, rectangle, options.pixelTolerance!),
             );
 
