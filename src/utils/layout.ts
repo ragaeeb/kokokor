@@ -113,11 +113,20 @@ export const getLastHorizontalLineY = (
 
 type FootnoteSeparatorContext = {
     observations: Observation[];
+    observationsAreHorizontallyMirrored: boolean;
     pageHeight: number;
     pageWidth: number;
 };
 
-const overlapsVertically = (first: BoundingBox, second: BoundingBox) => {
+const getHorizontalOverlap = (first: BoundingBox, second: BoundingBox) =>
+    Math.min(first.x + first.width, second.x + second.width) - Math.max(first.x, second.x);
+
+const overlapsVertically = (
+    first: BoundingBox,
+    second: BoundingBox,
+    pageWidth: number,
+    observationsAreHorizontallyMirrored: boolean,
+) => {
     const secondBottom = second.y + second.height;
     const firstCenterY = first.y + first.height / 2;
     if (firstCenterY <= second.y || firstCenterY >= secondBottom) {
@@ -128,8 +137,18 @@ const overlapsVertically = (first: BoundingBox, second: BoundingBox) => {
         return true;
     }
 
-    const horizontalOverlap = Math.min(first.x + first.width, second.x + second.width) - Math.max(first.x, second.x);
-    return horizontalOverlap > 0 && second.width <= first.width * 0.4;
+    const horizontalOverlap = Math.max(
+        getHorizontalOverlap(first, second),
+        observationsAreHorizontallyMirrored
+            ? getHorizontalOverlap(first, { ...second, x: pageWidth - (second.x + second.width) })
+            : 0,
+    );
+    const isUnderlineNearObservationBottom =
+        relativePosition > 0.9 &&
+        relativePosition <= 0.95 &&
+        first.width >= second.width * 0.5 &&
+        horizontalOverlap >= first.width * 0.9;
+    return (horizontalOverlap > 0 && second.width <= first.width * 0.4) || isUnderlineNearObservationBottom;
 };
 
 const areSimilarHorizontalRules = (first: BoundingBox, second: BoundingBox) => {
@@ -180,6 +199,66 @@ const isPairedDecoration = (
         return (isSimilarPair && (isNearbyPair || isWideFrame)) || onlyFramesNarrowCenteredText;
     });
 
+const countArabicLetters = (text: string) =>
+    [...text.normalize('NFKC')].filter(
+        (character) => /\p{Letter}/u.test(character) && /\p{Script=Arabic}/u.test(character),
+    ).length;
+
+/**
+ * Detects a section-heading ornament made from two horizontal fragments with
+ * short centered Arabic text in the gap. A single fragment can otherwise look
+ * exactly like a high footnote rule when its partner is a few pixels lower.
+ */
+const isSplitTitleDecoration = (
+    candidate: BoundingBox,
+    horizontalLines: BoundingBox[],
+    context: FootnoteSeparatorContext,
+    pixelTolerance: number,
+) =>
+    horizontalLines.some((other) => {
+        if (other === candidate) {
+            return false;
+        }
+
+        const candidateCenterY = candidate.y + candidate.height / 2;
+        const otherCenterY = other.y + other.height / 2;
+        const rowTolerance = Math.max(pixelTolerance * 2, candidate.height * 2, other.height * 2);
+        if (Math.abs(candidateCenterY - otherCenterY) > rowTolerance) {
+            return false;
+        }
+
+        const [left, right] = candidate.x <= other.x ? [candidate, other] : [other, candidate];
+        const gapStart = left.x + left.width;
+        const gapEnd = right.x;
+        const minimumFragmentWidth = context.pageWidth * 0.12;
+        if (
+            gapEnd <= gapStart ||
+            left.width < minimumFragmentWidth ||
+            right.width < minimumFragmentWidth ||
+            left.x >= context.pageWidth / 2 ||
+            right.x + right.width <= context.pageWidth / 2
+        ) {
+            return false;
+        }
+
+        const decorationCenterY = (candidateCenterY + otherCenterY) / 2;
+        return context.observations.some((observation) => {
+            const observationRight = observation.bbox.x + observation.bbox.width;
+            const observationBottom = observation.bbox.y + observation.bbox.height;
+            const observationCenterX = observation.bbox.x + observation.bbox.width / 2;
+            const overlapsGap = Math.min(observationRight, gapEnd) > Math.max(observation.bbox.x, gapStart);
+            const overlapsRuleRow =
+                decorationCenterY >= observation.bbox.y - pixelTolerance &&
+                decorationCenterY <= observationBottom + pixelTolerance;
+            const isShortCenteredTitle =
+                Math.abs(observationCenterX - context.pageWidth / 2) <= context.pageWidth * 0.12 &&
+                observation.bbox.width <= context.pageWidth * 0.45 &&
+                countArabicLetters(observation.text) >= 3;
+
+            return overlapsGap && overlapsRuleRow && isShortCenteredTitle;
+        });
+    });
+
 /**
  * Selects the lowest horizontal rule that plausibly separates body text from
  * footnotes. Decorative headers, rules crossing OCR text, and bottom-edge
@@ -197,7 +276,18 @@ export const getFootnoteSeparatorY = (
     const candidates = nonEdgeLines
         .filter((line) => line.y >= minimumY)
         .filter((line) => !isPairedDecoration(line, nonEdgeLines, context))
-        .filter((line) => !context.observations.some((observation) => overlapsVertically(line, observation.bbox)))
+        .filter((line) => !isSplitTitleDecoration(line, nonEdgeLines, context, pixelTolerance))
+        .filter(
+            (line) =>
+                !context.observations.some((observation) =>
+                    overlapsVertically(
+                        line,
+                        observation.bbox,
+                        context.pageWidth,
+                        context.observationsAreHorizontallyMirrored,
+                    ),
+                ),
+        )
         .filter((line) => {
             const lineCenterY = line.y + line.height / 2;
             const observationsAbove = context.observations.filter(

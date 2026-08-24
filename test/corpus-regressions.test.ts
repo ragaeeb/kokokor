@@ -13,7 +13,7 @@ type CorpusFixture = ReconstructInput & {
 
 const fixtureNames = ['albani-ba-p0707', 'albani-ba-p0721', 'albani-ba-p0780'] as const;
 
-const readCorpusFixture = async (corpus: 'kokokor' | 'sadi-mraq', fixtureName: string) =>
+const readCorpusFixture = async (corpus: 'bazmul' | 'kokokor' | 'ruhayli' | 'sadi-mraq', fixtureName: string) =>
     (await Bun.file(path.join('test', 'corpus', corpus, `${fixtureName}.json`)).json()) as CorpusFixture;
 
 const readFixture = async (fixtureName: string) => readCorpusFixture('kokokor', fixtureName);
@@ -77,6 +77,55 @@ describe('real corpus regressions', () => {
         expect(result.lines).toHaveLength(15);
         expect(result.lines.some((line) => line.isFootnote)).toBeFalse();
         expect(result.lines.at(-1)?.text).toContain('فَاضْرِبُوا عُنُقَ');
+    });
+
+    it('does not treat split rules flanking a centered chapter title as a footnote separator', async () => {
+        const fixture = await readCorpusFixture('ruhayli', 'ruhayli-irshad-p1241');
+
+        const result = reconstructParagraphs(fixture, { line: { contentFilter: 'arabic' } });
+
+        expect(result.lines).toHaveLength(18);
+        expect(result.lines.some((line) => line.isFootnote)).toBeFalse();
+        expect(result.lines[2]?.text).toBe('الشرح ب٢');
+        expect(result.lines.at(-1)?.text).toBe('عَزَّوَجَلَّ.');
+    });
+
+    it('does not treat a back-cover barcode rule as a footnote separator', async () => {
+        const fixture = await readCorpusFixture('ruhayli', 'ruhayli-haqq-p0068');
+
+        const result = reconstructParagraphs(fixture, { line: { contentFilter: 'arabic' } });
+
+        expect(result.lines).toHaveLength(8);
+        expect(result.lines.some((line) => line.isFootnote)).toBeFalse();
+        expect(result.lines.at(-1)?.text).toContain('البريد الإلكتروني');
+    });
+
+    it('keeps a true separator when its rule touches the final body OCR box', async () => {
+        const fixture = await readCorpusFixture('bazmul', 'bazmul-al-mueen-p0029');
+
+        const result = reconstructParagraphs(fixture, { line: { contentFilter: 'arabic' } });
+        const footnotes = result.lines.filter((line) => line.isFootnote);
+
+        expect(result.lines).toHaveLength(21);
+        expect(result.lines.findIndex((line) => line.isFootnote)).toBe(15);
+        expect(footnotes).toHaveLength(6);
+        expect(footnotes[0]?.text).toStartWith('(١) أخرجه وكيع');
+        expect(footnotes.at(-1)?.text).toBe('(٥) (آل عمران:١٩).');
+    });
+
+    it('does not mark a boxed running header as a heading', async () => {
+        const ordinaryPage = await readCorpusFixture('bazmul', 'bazmul-wasail-p0050');
+        const sectionPage = await readCorpusFixture('bazmul', 'bazmul-wasail-p0104');
+
+        const ordinaryResult = reconstructParagraphs(ordinaryPage, { line: { contentFilter: 'arabic' } });
+        const sectionResult = reconstructParagraphs(sectionPage, { line: { contentFilter: 'arabic' } });
+
+        expect(ordinaryResult.lines[0]?.text).toBe('وسائل أهل الباطل في تقرير باطلهم');
+        expect(ordinaryResult.lines[0]?.isHeading).toBeFalsy();
+        expect(sectionResult.lines[0]?.isHeading).toBeFalsy();
+        expect(sectionResult.lines[1]?.text).toBe('الخاتمة');
+        expect(sectionResult.lines[1]?.isHeading).toBeTrue();
+        expect(sectionResult.lines[2]?.isHeading).toBeTrue();
     });
 
     it('restores body text between an initial citation block and a later explicit footnote', async () => {

@@ -1,4 +1,5 @@
 import type {
+    BoundingBox,
     MapObservationsToTextLinesOptions,
     Observation,
     PageContext,
@@ -27,6 +28,20 @@ import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
 
 const EXPLICIT_FOOTNOTE_START_PATTERN = /^\s*[(﴾]\s*[0-9٠-٩۰-۹]{1,3}\s*[)﴿]/u;
 const ATTRIBUTED_BODY_RESUMPTION_PATTERN = /^قال\s+[^:：]{2,120}[:：]/u;
+const TOP_RUNNING_HEADER_REGION_RATIO = 0.15;
+const WIDE_HEADER_RECTANGLE_RATIO = 0.7;
+const SHORT_HEADER_TEXT_RATIO = 0.6;
+
+const isLikelyRunningHeader = (
+    observation: Observation,
+    rectangle: BoundingBox,
+    page: PageContext,
+    options: MapObservationsToTextLinesOptions,
+) =>
+    rectangle.y < page.height * TOP_RUNNING_HEADER_REGION_RATIO &&
+    rectangle.width >= page.width * WIDE_HEADER_RECTANGLE_RATIO &&
+    observation.bbox.width <= rectangle.width * SHORT_HEADER_TEXT_RATIO &&
+    !isObservationCentered(observation.bbox, page.width, options);
 
 /**
  * Some books place a citation block below a rule, resume the body, then put a
@@ -162,7 +177,12 @@ export const mapObservationsToTextLines = (
     const footerLineY = getFootnoteSeparatorY(
         structuralRectangles,
         options.horizontalLines || [],
-        { observations, pageHeight: page.height, pageWidth: page.width },
+        {
+            observations,
+            observationsAreHorizontallyMirrored: options.isRTL,
+            pageHeight: page.height,
+            pageWidth: page.width,
+        },
         options.pixelTolerance,
     );
     const avgProseWordDensity = calculateAverageProseDensity(
@@ -174,8 +194,10 @@ export const mapObservationsToTextLines = (
         (o) => {
             const e: TextBlock & { index: number } = { ...o };
 
-            const isObservationInsideRectangle = structuralRectangles.some((rectangle) =>
-                isBoundingBoxContained(o.bbox, rectangle, options.pixelTolerance!),
+            const isObservationInsideRectangle = structuralRectangles.some(
+                (rectangle) =>
+                    isBoundingBoxContained(o.bbox, rectangle, options.pixelTolerance!) &&
+                    !isLikelyRunningHeader(o, rectangle, page, options),
             );
 
             if (isObservationInsideRectangle) {
