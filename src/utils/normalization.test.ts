@@ -1,6 +1,24 @@
 import { describe, expect, it } from 'bun:test';
 
-import { filterObservationsByContent, mapOcrResultToRTLObservations, normalizeObservationsX } from './normalization';
+import {
+    containsArabicHonorific,
+    filterObservationsByContent,
+    mapOcrResultToRTLObservations,
+    normalizeObservationsX,
+} from './normalization';
+
+const codePointRange = (start: number, end: number) =>
+    Array.from({ length: end - start + 1 }, (_, index) => String.fromCodePoint(start + index));
+
+const honorificInventory = [
+    ...codePointRange(0x0610, 0x0614),
+    ...codePointRange(0xfbc3, 0xfbd2),
+    ...codePointRange(0xfd40, 0xfd4f),
+    ...codePointRange(0xfdc8, 0xfdcf),
+    ...codePointRange(0xfdfa, 0xfdfb),
+    ...codePointRange(0xfdfd, 0xfdff),
+    ...codePointRange(0x10ed1, 0x10ed8),
+];
 
 describe('normalization', () => {
     describe('filterObservationsByContent', () => {
@@ -15,6 +33,29 @@ describe('normalization', () => {
                 'نص عربي مفيد',
                 'ج٥٤-',
             ]);
+        });
+
+        it.each(['any', 'arabic'] as const)(
+            'preserves isolated honorific signs and ligatures with the %s content policy',
+            (contentFilter) => {
+                const observations = [
+                    { bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'نص عربي مفيد' },
+                    ...honorificInventory.map((text, index) => ({
+                        bbox: { height: 10, width: 10, x: 10, y: 40 + index * 12 },
+                        text,
+                    })),
+                ];
+
+                const retained = filterObservationsByContent(observations, contentFilter).map(
+                    (observation) => observation.text,
+                );
+
+                expect(retained).toEqual(observations.map((observation) => observation.text));
+            },
+        );
+
+        it('does not classify the Rial currency sign as an honorific', () => {
+            expect(containsArabicHonorific('﷼')).toBeFalse();
         });
     });
 

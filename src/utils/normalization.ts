@@ -53,6 +53,16 @@ export const mapOcrResultToRTLObservations = (observations: Observation[], image
  */
 const isArabicLetter = (character: string) => /\p{Letter}/u.test(character) && /\p{Script=Arabic}/u.test(character);
 
+const ARABIC_HONORIFIC_PATTERN =
+    /[\u0610-\u0614\uFBC3-\uFBD2\uFD40-\uFD4F\uFDC8-\uFDCF\uFDFA-\uFDFB\uFDFD-\uFDFF\u{10ED1}-\u{10ED8}]/u;
+
+/**
+ * Returns whether text contains a Unicode Arabic honorific sign or ligature.
+ * The Rial sign U+FDFC is intentionally excluded because it is currency, not
+ * an honorific.
+ */
+export const containsArabicHonorific = (text: string) => ARABIC_HONORIFIC_PATTERN.test(text);
+
 const hasNonArabicLetters = (text: string) =>
     [...text.normalize('NFKC')].some(
         (character) => /\p{Letter}/u.test(character) && !/\p{Script=Arabic}/u.test(character),
@@ -76,6 +86,10 @@ export const hasArabicText = (text: string, minimumLetterCount = 2) => {
 };
 
 export const filterNoisyObservations = (o: Observation, contentFilter: 'any' | 'arabic' = 'any') => {
+    if (containsArabicHonorific(o.text ?? '')) {
+        return true;
+    }
+
     const normalizedText = o.text?.normalize('NFKC') ?? '';
     const hasMinimumContent = normalizedText.replace(/[،,؛;؟?۔.:\-()]/g, '').length > 1;
     if (!hasMinimumContent) {
@@ -120,7 +134,9 @@ export const filterObservationsByContent = (observations: Observation[], content
         return meaningful;
     }
 
-    const arabicObservations = meaningful.filter((observation) => hasArabicText(observation.text));
+    const arabicObservations = meaningful.filter(
+        (observation) => hasArabicText(observation.text) || containsArabicHonorific(observation.text),
+    );
     if (arabicObservations.length === 0) {
         return [];
     }

@@ -288,9 +288,24 @@ type TextBlock = Observation & {
 ```typescript
 type Observation = {
     bbox: BoundingBox; // Position and dimensions
+    id?: string; // Stable ID supplied by the OCR producer
+    rawText?: string; // OCR text before downstream normalization
+    sourceRange?: { location: number; length: number; unit: 'utf16' };
+    sourceFragments?: Observation[]; // Flattened leaves retained by merges
     text: string; // Text content
 };
 ```
+
+Provenance is opt-in. When an input observation has an `id` or existing
+`sourceFragments`, line and paragraph merges remove the misleading single
+source `id` and retain all contributing leaf observations in
+`sourceFragments`. Existing text-and-bounding-box callers keep the legacy
+output shape.
+
+Noise filtering preserves isolated Arabic honorific code points, including
+the ﷺ ligature and reviewed Arabic honorific mark and presentation-form
+ranges. This applies to both the default and Arabic-only content policies;
+unrelated symbols such as the Rial sign are not treated as honorifics.
 
 #### `BoundingBox`
 
