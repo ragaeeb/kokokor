@@ -51,7 +51,105 @@ export const mapOcrResultToRTLObservations = (observations: Observation[], image
  * // Result: Only "Hello world" observation remains
  * ```
  */
-export const filterNoisyObservations = (o: Observation) => o.text?.replace(/[،,؛;؟?۔.:\-()]/g, '').length > 1;
+const isArabicLetter = (character: string) => /\p{Letter}/u.test(character) && /\p{Script=Arabic}/u.test(character);
+
+const ARABIC_HONORIFIC_PATTERN =
+    /[\u0610-\u0614\uFBC3-\uFBD2\uFD40-\uFD4F\uFDC8-\uFDCF\uFDFA-\uFDFB\uFDFD-\uFDFF\u{10ED1}-\u{10ED8}]/u;
+
+/**
+ * Returns whether text contains a Unicode Arabic honorific sign or ligature.
+ * The Rial sign U+FDFC is intentionally excluded because it is currency, not
+ * an honorific.
+ */
+export const containsArabicHonorific = (text: string) => ARABIC_HONORIFIC_PATTERN.test(text);
+
+const hasNonArabicLetters = (text: string) =>
+    [...text.normalize('NFKC')].some(
+        (character) => /\p{Letter}/u.test(character) && !/\p{Script=Arabic}/u.test(character),
+    );
+
+/**
+ * Returns whether text contains enough Arabic letters to represent useful OCR
+ * content. NFKC expands Arabic presentation-form ligatures before counting.
+ */
+export const hasArabicText = (text: string, minimumLetterCount = 2) => {
+    let arabicLetterCount = 0;
+    for (const character of text.normalize('NFKC')) {
+        if (isArabicLetter(character)) {
+            arabicLetterCount++;
+            if (arabicLetterCount >= minimumLetterCount) {
+                return true;
+            }
+        }
+    }
+    return false;
+};
+
+export const filterNoisyObservations = (o: Observation, contentFilter: 'any' | 'arabic' = 'any') => {
+    if (containsArabicHonorific(o.text ?? '')) {
+        return true;
+    }
+
+    const normalizedText = o.text?.normalize('NFKC') ?? '';
+    const hasMinimumContent = normalizedText.replace(/[،,؛;؟?۔.:\-()]/g, '').length > 1;
+    if (!hasMinimumContent) {
+        return false;
+    }
+    return contentFilter !== 'arabic' || hasArabicText(o.text);
+};
+
+const sharesTextLineVertically = (first: Observation, second: Observation) => {
+    const firstBottom = first.bbox.y + first.bbox.height;
+    const secondBottom = second.bbox.y + second.bbox.height;
+    const verticalGap = Math.max(first.bbox.y - secondBottom, second.bbox.y - firstBottom, 0);
+
+    // Narrow numeric table cells are sometimes placed immediately above the
+    // Arabic label's box instead of overlapping it. Keep cells within one
+    // compact box height; line grouping will still decide whether they belong
+    // to the same physical row.
+    return verticalGap <= Math.min(first.bbox.height, second.bbox.height);
+};
+
+const REFERENCE_FRAGMENT_PATTERN = /^[\p{Script=Arabic}\p{Number}\p{Mark}\s()[\]{}،؛؟.,:;/\\\-–—«»'"’“”]+$/u;
+
+const isUsefulNumericFragment = (observation: Observation, arabicObservations: Observation[]) => {
+    const normalizedText = observation.text.normalize('NFKC');
+    const numberCount = [...normalizedText].filter((character) => /\p{Number}/u.test(character)).length;
+    if (numberCount === 0 || !REFERENCE_FRAGMENT_PATTERN.test(normalizedText)) {
+        return false;
+    }
+    return (
+        hasArabicText(normalizedText, 1) ||
+        arabicObservations.some((arabicObservation) => sharesTextLineVertically(observation, arabicObservation))
+    );
+};
+
+/**
+ * Applies the requested content policy while retaining credible numeric
+ * fragments on pages that otherwise contain Arabic text.
+ */
+export const filterObservationsByContent = (observations: Observation[], contentFilter: 'any' | 'arabic' = 'any') => {
+    const meaningful = observations.filter((observation) => filterNoisyObservations(observation));
+    if (contentFilter !== 'arabic') {
+        return meaningful;
+    }
+
+    const arabicObservations = meaningful.filter(
+        (observation) => hasArabicText(observation.text) || containsArabicHonorific(observation.text),
+    );
+    if (arabicObservations.length === 0) {
+        return [];
+    }
+    const arabicObservationSet = new Set(arabicObservations);
+    const arabicContentCandidates = observations.filter(
+        (observation) => filterNoisyObservations(observation) || /\p{Number}/u.test(observation.text.normalize('NFKC')),
+    );
+    return arabicContentCandidates.filter(
+        (observation) =>
+            arabicObservationSet.has(observation) ||
+            (!hasNonArabicLetters(observation.text) && isUsefulNumericFragment(observation, arabicObservations)),
+    );
+};
 
 /**
  * Normalizes x-coordinates of observations to create clean alignment.

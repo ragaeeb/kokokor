@@ -1,4 +1,7 @@
-import type { BoundingBox, CenteringOptions } from '@/types';
+import type { BoundingBox, CenteringOptions, Observation } from '@/types';
+
+const MIN_FOOTNOTE_SEPARATOR_Y_RATIO = 0.15;
+const MIN_BODY_OBSERVATION_WIDTH_RATIO = 0.4;
 
 /**
  * Determines if an observation is centered on the page with sufficient whitespace around it.
@@ -77,6 +80,13 @@ export const filterHorizontalLinesOutsideRectangles = (
 };
 
 /**
+ * Removes page-border artifacts that span nearly the entire page. These are
+ * common on scans and should not behave like semantic text boxes.
+ */
+export const filterStructuralRectangles = (rectangles: BoundingBox[], page: { height: number; width: number }) =>
+    rectangles.filter((rectangle) => rectangle.height < page.height * 0.9);
+
+/**
  * Finds the y-coordinate of the last horizontal line that's not contained within any rectangle.
  *
  * Used to identify the footer boundary - text below this line is typically footnotes.
@@ -99,6 +109,220 @@ export const getLastHorizontalLineY = (
     horizontalLines = horizontalLines.filter((line) => line.y > pixelTolerance); // take out lines that are very close to the top-edge which are probably artifacts
 
     return horizontalLines.at(-1)?.y;
+};
+
+type FootnoteSeparatorContext = {
+    observations: Observation[];
+    observationsAreHorizontallyMirrored: boolean;
+    pageHeight: number;
+    pageWidth: number;
+};
+
+const getHorizontalOverlap = (first: BoundingBox, second: BoundingBox) =>
+    Math.min(first.x + first.width, second.x + second.width) - Math.max(first.x, second.x);
+
+const overlapsVertically = (
+    first: BoundingBox,
+    second: BoundingBox,
+    pageWidth: number,
+    observationsAreHorizontallyMirrored: boolean,
+) => {
+    const secondBottom = second.y + second.height;
+    const firstCenterY = first.y + first.height / 2;
+    if (firstCenterY <= second.y || firstCenterY >= secondBottom) {
+        return false;
+    }
+    const relativePosition = (firstCenterY - second.y) / second.height;
+    if (relativePosition >= 0.1 && relativePosition <= 0.9) {
+        return true;
+    }
+
+    const horizontalOverlap = Math.max(
+        getHorizontalOverlap(first, second),
+        observationsAreHorizontallyMirrored
+            ? getHorizontalOverlap(first, { ...second, x: pageWidth - (second.x + second.width) })
+            : 0,
+    );
+    const isUnderlineNearObservationBottom =
+        relativePosition > 0.9 &&
+        relativePosition <= 0.95 &&
+        first.width >= second.width * 0.5 &&
+        horizontalOverlap >= first.width * 0.9;
+    return (horizontalOverlap > 0 && second.width <= first.width * 0.4) || isUnderlineNearObservationBottom;
+};
+
+const areSimilarHorizontalRules = (first: BoundingBox, second: BoundingBox) => {
+    const referenceWidth = Math.max(first.width, second.width);
+    const horizontalTolerance = Math.max(12, referenceWidth * 0.08);
+    return (
+        Math.abs(first.x - second.x) <= horizontalTolerance &&
+        Math.abs(first.width - second.width) <= horizontalTolerance
+    );
+};
+
+const getObservationsBetweenRules = (first: BoundingBox, second: BoundingBox, observations: Observation[]) => {
+    const upperRule = first.y <= second.y ? first : second;
+    const lowerRule = first.y <= second.y ? second : first;
+    const upperBottom = upperRule.y + upperRule.height;
+    return observations.filter(
+        (observation) =>
+            observation.bbox.y >= upperBottom && observation.bbox.y + observation.bbox.height <= lowerRule.y,
+    );
+};
+
+const isPairedDecoration = (
+    candidate: BoundingBox,
+    horizontalLines: BoundingBox[],
+    context: FootnoteSeparatorContext,
+) =>
+    horizontalLines.some((other) => {
+        if (other === candidate) {
+            return false;
+        }
+        const separation = Math.abs(candidate.y - other.y);
+        const isNearbyPair = separation <= context.pageHeight * 0.2;
+        const isWideFrame = Math.min(candidate.width, other.width) >= context.pageWidth * 0.5;
+        const observationsBetween = getObservationsBetweenRules(candidate, other, context.observations);
+        if (observationsBetween.length === 0) {
+            return false;
+        }
+
+        const isSimilarPair = areSimilarHorizontalRules(candidate, other);
+        const onlyFramesNarrowCenteredText =
+            isNearbyPair &&
+            observationsBetween.every((observation) => observation.bbox.width <= context.pageWidth * 0.5) &&
+            observationsBetween.some((observation) => {
+                const centerX = observation.bbox.x + observation.bbox.width / 2;
+                return Math.abs(centerX - context.pageWidth / 2) <= context.pageWidth * 0.1;
+            });
+
+        return (isSimilarPair && (isNearbyPair || isWideFrame)) || onlyFramesNarrowCenteredText;
+    });
+
+const countArabicLetters = (text: string) =>
+    [...text.normalize('NFKC')].filter(
+        (character) => /\p{Letter}/u.test(character) && /\p{Script=Arabic}/u.test(character),
+    ).length;
+
+/**
+ * Detects a section-heading ornament made from two horizontal fragments with
+ * short centered Arabic text in the gap. A single fragment can otherwise look
+ * exactly like a high footnote rule when its partner is a few pixels lower.
+ */
+const isSplitTitleDecoration = (
+    candidate: BoundingBox,
+    horizontalLines: BoundingBox[],
+    context: FootnoteSeparatorContext,
+    pixelTolerance: number,
+) =>
+    horizontalLines.some((other) => {
+        if (other === candidate) {
+            return false;
+        }
+
+        const candidateCenterY = candidate.y + candidate.height / 2;
+        const otherCenterY = other.y + other.height / 2;
+        const rowTolerance = Math.max(pixelTolerance * 2, candidate.height * 2, other.height * 2);
+        if (Math.abs(candidateCenterY - otherCenterY) > rowTolerance) {
+            return false;
+        }
+
+        const [left, right] = candidate.x <= other.x ? [candidate, other] : [other, candidate];
+        const gapStart = left.x + left.width;
+        const gapEnd = right.x;
+        const minimumFragmentWidth = context.pageWidth * 0.12;
+        if (
+            gapEnd <= gapStart ||
+            left.width < minimumFragmentWidth ||
+            right.width < minimumFragmentWidth ||
+            left.x >= context.pageWidth / 2 ||
+            right.x + right.width <= context.pageWidth / 2
+        ) {
+            return false;
+        }
+
+        const decorationCenterY = (candidateCenterY + otherCenterY) / 2;
+        return context.observations.some((observation) => {
+            const observationRight = observation.bbox.x + observation.bbox.width;
+            const observationBottom = observation.bbox.y + observation.bbox.height;
+            const observationCenterX = observation.bbox.x + observation.bbox.width / 2;
+            const overlapsGap = Math.min(observationRight, gapEnd) > Math.max(observation.bbox.x, gapStart);
+            const overlapsRuleRow =
+                decorationCenterY >= observation.bbox.y - pixelTolerance &&
+                decorationCenterY <= observationBottom + pixelTolerance;
+            const isShortCenteredTitle =
+                Math.abs(observationCenterX - context.pageWidth / 2) <= context.pageWidth * 0.12 &&
+                observation.bbox.width <= context.pageWidth * 0.45 &&
+                countArabicLetters(observation.text) >= 3;
+
+            return overlapsGap && overlapsRuleRow && isShortCenteredTitle;
+        });
+    });
+
+/**
+ * Selects the lowest horizontal rule that plausibly separates body text from
+ * footnotes. Decorative headers, rules crossing OCR text, and bottom-edge
+ * artifacts are rejected using page and observation context.
+ */
+export const getFootnoteSeparatorY = (
+    rectangles: BoundingBox[],
+    horizontalLines: BoundingBox[],
+    context: FootnoteSeparatorContext,
+    pixelTolerance = 5,
+) => {
+    const outsideRectangles = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
+    const minimumY = context.pageHeight * MIN_FOOTNOTE_SEPARATOR_Y_RATIO;
+    const nonEdgeLines = outsideRectangles.filter((line) => line.y + line.height < context.pageHeight - pixelTolerance);
+    const candidates = nonEdgeLines
+        .filter((line) => line.y >= minimumY)
+        .filter((line) => !isPairedDecoration(line, nonEdgeLines, context))
+        .filter((line) => !isSplitTitleDecoration(line, nonEdgeLines, context, pixelTolerance))
+        .filter(
+            (line) =>
+                !context.observations.some((observation) =>
+                    overlapsVertically(
+                        line,
+                        observation.bbox,
+                        context.pageWidth,
+                        context.observationsAreHorizontallyMirrored,
+                    ),
+                ),
+        )
+        .filter((line) => {
+            const lineCenterY = line.y + line.height / 2;
+            const observationsAbove = context.observations.filter(
+                (observation) => observation.bbox.y + observation.bbox.height / 2 < lineCenterY,
+            );
+            const headerUnderlineTolerance = pixelTolerance * 2;
+            const contentWellAboveLine = observationsAbove.filter(
+                (observation) => line.y - (observation.bbox.y + observation.bbox.height) > headerUnderlineTolerance,
+            );
+            const hasWideContentAboveLine = observationsAbove.some(
+                (observation) =>
+                    observation.bbox.y + observation.bbox.height <= line.y &&
+                    observation.bbox.width >= context.pageWidth * MIN_BODY_OBSERVATION_WIDTH_RATIO,
+            );
+            const hasMultipleContentRowsAboveLine = contentWellAboveLine.some((observation, index) =>
+                contentWellAboveLine.slice(index + 1).some((other) => {
+                    const centerDistance = Math.abs(
+                        observation.bbox.y + observation.bbox.height / 2 - (other.bbox.y + other.bbox.height / 2),
+                    );
+                    const rowTolerance = Math.max(
+                        headerUnderlineTolerance,
+                        Math.min(observation.bbox.height, other.bbox.height) * 0.5,
+                    );
+                    return centerDistance > rowTolerance;
+                }),
+            );
+            const hasBodyContentWellAboveLine = hasWideContentAboveLine || hasMultipleContentRowsAboveLine;
+            const hasObservationBelow = context.observations.some(
+                (observation) => observation.bbox.y + observation.bbox.height / 2 > lineCenterY,
+            );
+            return observationsAbove.length >= 2 && hasBodyContentWellAboveLine && hasObservationBelow;
+        })
+        .toSorted((first, second) => first.y - second.y);
+
+    return candidates.at(-1)?.y;
 };
 
 /**
@@ -210,8 +434,12 @@ export const computeAdaptiveLineHeightFactor = (heights: number[], typicalGap: n
     // Determine factor based on gap-to-height ratio
     const gapToHeightRatio = typicalGap / avgHeight;
 
-    if (gapToHeightRatio < 0.8) return 0.15; // Small gaps - likely intra-line groupings
-    if (gapToHeightRatio < 1.2) return 0.25; // Medium gaps
+    if (gapToHeightRatio < 0.8) {
+        return 0.15; // Small gaps - likely intra-line groupings
+    }
+    if (gapToHeightRatio < 1.2) {
+        return 0.25; // Medium gaps
+    }
 
     return 0.4; // Large gaps - mostly separate lines
 };

@@ -1,5 +1,14 @@
 import type { Observation } from '@/types';
 
+const flattenSourceFragments = (observation: Observation): Observation[] => {
+    if (observation.sourceFragments && observation.sourceFragments.length > 0) {
+        return observation.sourceFragments.flatMap(flattenSourceFragments);
+    }
+
+    const { sourceFragments: _, ...fragment } = observation;
+    return [fragment];
+};
+
 /**
  * Groups items by their assigned index value into separate arrays.
  *
@@ -100,8 +109,8 @@ export const mergeObservations = <T extends Observation>(group: T[], delimiter =
         combinedText += `${delimiter}${text}`;
     }
 
-    // Create the merged observation, preserving all properties from the first observation
-    return {
+    // Create the merged observation, preserving all properties from the first observation.
+    const merged = {
         ...group[0],
         bbox: {
             height: maxY - minY,
@@ -110,7 +119,17 @@ export const mergeObservations = <T extends Observation>(group: T[], delimiter =
             y: minY,
         },
         text: combinedText,
-    };
+    } as T;
+
+    const shouldPreserveSources = group.some(
+        (observation) => observation.id !== undefined || (observation.sourceFragments?.length ?? 0) > 0,
+    );
+    if (shouldPreserveSources) {
+        delete (merged as Observation).id;
+        (merged as Observation).sourceFragments = group.flatMap(flattenSourceFragments);
+    }
+
+    return merged;
 };
 
 /**

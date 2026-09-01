@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { groupByIndex, mergeGroupedObservations, sortGroupsHorizontally } from './grouping';
+import { groupByIndex, mergeGroupedObservations, mergeObservations, sortGroupsHorizontally } from './grouping';
 
 describe('grouping', () => {
     describe('groupByIndex', () => {
@@ -320,6 +320,57 @@ describe('grouping', () => {
     });
 
     describe('mergeGroupedObservations', () => {
+        it('preserves every identified source fragment instead of retaining only the first ID', () => {
+            const first = {
+                bbox: { height: 10, width: 40, x: 10, y: 10 },
+                id: 'page-1:observation-0001',
+                rawText: 'النبي',
+                sourceRange: { length: 5, location: 0, unit: 'utf16' as const },
+                text: 'النبي',
+            };
+            const second = {
+                bbox: { height: 8, width: 8, x: 52, y: 8 },
+                id: 'page-1:observation-0002',
+                rawText: 'ﷺ',
+                sourceRange: { length: 1, location: 0, unit: 'utf16' as const },
+                text: 'ﷺ',
+            };
+
+            const merged = mergeObservations([first, second]);
+
+            expect(merged.id).toBeUndefined();
+            expect(merged.sourceFragments).toEqual([first, second]);
+        });
+
+        it('flattens source fragments when lines are merged into a paragraph', () => {
+            const firstLine = mergeObservations([
+                {
+                    bbox: { height: 10, width: 40, x: 10, y: 10 },
+                    id: 'page-1:observation-0001',
+                    text: 'النبي',
+                },
+                {
+                    bbox: { height: 8, width: 8, x: 52, y: 8 },
+                    id: 'page-1:observation-0002',
+                    text: 'ﷺ',
+                },
+            ]);
+            const secondLine = {
+                bbox: { height: 10, width: 80, x: 10, y: 25 },
+                id: 'page-1:observation-0003',
+                text: 'قال ما يلي',
+            };
+
+            const paragraph = mergeObservations([firstLine, secondLine]);
+
+            expect(paragraph.sourceFragments?.map((fragment) => fragment.id)).toEqual([
+                'page-1:observation-0001',
+                'page-1:observation-0002',
+                'page-1:observation-0003',
+            ]);
+            expect(paragraph.sourceFragments?.some((fragment) => fragment.sourceFragments !== undefined)).toBeFalse();
+        });
+
         it('should merge observations within each group into a single observation', () => {
             const grouped = [
                 [
