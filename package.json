@@ -5,9 +5,9 @@
   },
   "description": "A lightweight TypeScript library designed to reconstruct paragraphs from OCRed inputs.",
   "devDependencies": {
-    "@biomejs/biome": "^2.5.10",
+    "@biomejs/biome": "^2.5.11",
     "@types/bun": "^1.4.0",
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.4.0",
     "semantic-release": "^25.0.9",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2"
