@@ -38,6 +38,8 @@ type OcrResult = {
 
 type OcrTestResults = { observations: Observation[] };
 
+const stripOneTrailingLineEnding = (text: string) => text.replace(/\r?\n$/u, '');
+
 const loadOCRData = async (only: string[] = []) => {
     const fileToTestData: Record<string, OcrTestResults> = await Bun.file(
         path.join('test', 'mixed', 'ocr.json'),
@@ -97,8 +99,20 @@ describe('index', () => {
                 await expectationFile.write(actual);
             }
 
-            const expected = await expectationFile.text();
+            const expected = stripOneTrailingLineEnding(await expectationFile.text());
             expect(actual).toEqual(expected);
+        });
+    });
+
+    describe('snapshot line ending handling', () => {
+        it.each([
+            ['text\n', 'text'],
+            ['text\r\n', 'text'],
+            ['text', 'text'],
+            ['text \n', 'text '],
+            ['text\n\n', 'text\n'],
+        ])('removes exactly one trailing line ending from %j', (actual, expected) => {
+            expect(stripOneTrailingLineEnding(actual)).toBe(expected);
         });
     });
 

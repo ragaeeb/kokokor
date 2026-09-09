@@ -1,4 +1,5 @@
 import type {
+    BoundingBox,
     MapObservationsToTextLinesOptions,
     Observation,
     PageContext,
@@ -9,16 +10,82 @@ import type {
 
 import { DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS, DEFAULT_POETRY_OPTIONS } from './constants';
 import { groupByIndex, mergeGroupedObservations, mergeObservations, sortGroupsHorizontally } from './grouping';
-import { getLastHorizontalLineY, isBoundingBoxContained, isObservationCentered } from './layout';
+import {
+    filterStructuralRectangles,
+    getFootnoteSeparatorY,
+    isBoundingBoxContained,
+    isObservationCentered,
+} from './layout';
 import { indexItemsAsLines, indexItemsAsParagraphs } from './marking';
 import {
-    filterNoisyObservations,
+    filterObservationsByContent,
     mapOcrResultToRTLObservations,
     normalizeObservationsX,
     simplifyObservations,
 } from './normalization';
 import { resolveWithDefaults } from './options';
 import { calculateAverageProseDensity, isPoeticGroup } from './poetry';
+
+const EXPLICIT_FOOTNOTE_START_PATTERN = /^\s*[(﴾]\s*[0-9٠-٩۰-۹]{1,3}\s*[)﴿]/u;
+const ATTRIBUTED_BODY_RESUMPTION_PATTERN = /^قال\s+[^:：]{2,120}[:：]/u;
+const TOP_RUNNING_HEADER_REGION_RATIO = 0.15;
+const WIDE_HEADER_RECTANGLE_RATIO = 0.7;
+const SHORT_HEADER_TEXT_RATIO = 0.6;
+
+const isLikelyRunningHeader = (
+    observation: Observation,
+    rectangle: BoundingBox,
+    page: PageContext,
+    options: MapObservationsToTextLinesOptions,
+) =>
+    rectangle.y < page.height * TOP_RUNNING_HEADER_REGION_RATIO &&
+    rectangle.width >= page.width * WIDE_HEADER_RECTANGLE_RATIO &&
+    observation.bbox.width <= rectangle.width * SHORT_HEADER_TEXT_RATIO &&
+    !isObservationCentered(observation.bbox, page.width, options);
+
+/**
+ * Some books place a citation block below a rule, resume the body, then put a
+ * numbered note at the bottom of the same page. A single y-threshold initially
+ * marks the whole suffix as footnotes. When the geometry clearly shows a short
+ * citation ending, a substantial body run, and a later explicit note marker,
+ * restore that middle run to body text.
+ */
+const restoreInterleavedBodyLines = (lines: TextBlock[], pageWidth: number) => {
+    const firstFootnoteIndex = lines.findIndex((line) => line.isFootnote);
+    if (firstFootnoteIndex < 0 || EXPLICIT_FOOTNOTE_START_PATTERN.test(lines[firstFootnoteIndex].text)) {
+        return lines;
+    }
+
+    const laterExplicitFootnoteOffset = lines
+        .slice(firstFootnoteIndex + 1)
+        .findIndex((line) => EXPLICIT_FOOTNOTE_START_PATTERN.test(line.text));
+    if (laterExplicitFootnoteOffset < 0) {
+        return lines;
+    }
+    const laterExplicitFootnoteIndex = firstFootnoteIndex + laterExplicitFootnoteOffset + 1;
+    const bodyStartIndex =
+        lines.findIndex(
+            (line, index) =>
+                index >= firstFootnoteIndex &&
+                index + 2 < laterExplicitFootnoteIndex &&
+                line.bbox.width <= pageWidth * 0.35 &&
+                lines[index + 1].bbox.width >= pageWidth * 0.5,
+        ) + 1;
+    if (bodyStartIndex <= firstFootnoteIndex || bodyStartIndex >= laterExplicitFootnoteIndex) {
+        return lines;
+    }
+    if (!ATTRIBUTED_BODY_RESUMPTION_PATTERN.test(lines[bodyStartIndex].text)) {
+        return lines;
+    }
+
+    return lines.map((line, index) => {
+        if (index < bodyStartIndex || index >= laterExplicitFootnoteIndex) {
+            return line;
+        }
+        const { isFootnote: _, ...bodyLine } = line;
+        return bodyLine;
+    });
+};
 
 type ResolvedParagraphOptions = Required<ParagraphOptions>;
 
@@ -44,9 +111,9 @@ export const flipAndAlignObservations = (
     observations: Observation[],
     imageWidth: number,
     dpiX: number,
-    options: Partial<Pick<MapObservationsToTextLinesOptions, 'isRTL' | 'log'>> = {},
+    options: Partial<Pick<MapObservationsToTextLinesOptions, 'contentFilter' | 'isRTL' | 'log'>> = {},
 ) => {
-    observations = observations.filter(filterNoisyObservations);
+    observations = filterObservationsByContent(observations, options.contentFilter);
 
     if (observations.length === 0) {
         return [];
@@ -95,6 +162,8 @@ export const mapObservationsToTextLines = (
         return [];
     }
 
+    const structuralRectangles = filterStructuralRectangles(options.rectangles || [], page);
+
     if (options.log) {
         options.log(
             'indexObservationsAsLines',
@@ -105,9 +174,15 @@ export const mapObservationsToTextLines = (
         );
     }
 
-    const footerLineY = getLastHorizontalLineY(
-        options.rectangles || [],
+    const footerLineY = getFootnoteSeparatorY(
+        structuralRectangles,
         options.horizontalLines || [],
+        {
+            observations,
+            observationsAreHorizontallyMirrored: options.isRTL,
+            pageHeight: page.height,
+            pageWidth: page.width,
+        },
         options.pixelTolerance,
     );
     const avgProseWordDensity = calculateAverageProseDensity(
@@ -119,8 +194,10 @@ export const mapObservationsToTextLines = (
         (o) => {
             const e: TextBlock & { index: number } = { ...o };
 
-            const isObservationInsideRectangle = options.rectangles?.some((rectangle) =>
-                isBoundingBoxContained(o.bbox, rectangle, options.pixelTolerance!),
+            const isObservationInsideRectangle = structuralRectangles.some(
+                (rectangle) =>
+                    isBoundingBoxContained(o.bbox, rectangle, options.pixelTolerance!) &&
+                    !isLikelyRunningHeader(o, rectangle, page, options),
             );
 
             if (isObservationInsideRectangle) {
@@ -180,7 +257,7 @@ export const mapObservationsToTextLines = (
         return mergeObservations(group, delimiter);
     });
 
-    return merged as TextBlock[];
+    return restoreInterleavedBodyLines(merged as TextBlock[], page.width);
 };
 
 /**

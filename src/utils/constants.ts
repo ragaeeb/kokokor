@@ -37,6 +37,8 @@ export const DEFAULT_POETRY_OPTIONS: PoetryDetectionOptions = {
 export const DEFAULT_OBSERVATIONS_TO_TEXT_LINES_OPTIONS: MapObservationsToTextLinesOptions = {
     /** Center tolerance as 5% of image width for determining if text is centered */
     centerToleranceRatio: 0.05,
+    /** Preserve observations from any script unless a corpus opts into script filtering. */
+    contentFilter: 'any',
     /** Empty array of horizontal lines - will be populated during processing */
     horizontalLines: [],
     /** By default we will be handling RTL text. */

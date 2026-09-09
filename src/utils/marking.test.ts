@@ -1512,6 +1512,34 @@ describe('marking', () => {
             expect(paragraphs[3].index).toBe(1); // Same paragraph
         });
 
+        it('should separate a running header using whitespace below its bounding box', () => {
+            const observations = [
+                { bbox: { height: 37, width: 803, x: 246, y: 78 }, text: '٤٤٤ موسوعة مؤلفات ورسائل' },
+                { bbox: { height: 55, width: 858, x: 205, y: 152 }, text: 'قال الشيرازي شيء آخر' },
+                { bbox: { height: 60, width: 925, x: 140, y: 203 }, text: 'تكملة الفقرة الأولى' },
+                { bbox: { height: 58, width: 920, x: 140, y: 256 }, text: 'تكملة الفقرة الثانية' },
+            ];
+
+            const paragraphs = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(paragraphs.map((line) => line.index)).toEqual([0, 1, 1, 1]);
+        });
+
+        it('should group repeated contents-page rows as individual entries', () => {
+            const observations = [
+                { bbox: { height: 56, width: 860, x: 144, y: 100 }, text: 'فهرس الكتاب' },
+                { bbox: { height: 44, width: 928, x: 144, y: 250 }, text: 'الفصل الأول ........ ١٢' },
+                { bbox: { height: 53, width: 782, x: 144, y: 600 }, text: 'الفصل الثاني وله عنوان طويل' },
+                { bbox: { height: 44, width: 928, x: 144, y: 655 }, text: 'تكملة العنوان ........ ٢٤' },
+                { bbox: { height: 51, width: 928, x: 144, y: 710 }, text: 'الفصل الثالث ...... ٣٦' },
+                { bbox: { height: 49, width: 928, x: 144, y: 765 }, text: 'الخاتمة ........ ٤٨' },
+            ];
+
+            const paragraphs = indexItemsAsParagraphs(observations, 2, 0.85);
+
+            expect(paragraphs.map((line) => line.index)).toEqual([0, 1, 2, 2, 3, 4]);
+        });
+
         it('should create new paragraph after short lines', () => {
             const observations = [
                 { bbox: { height: 20, width: 500, x: 10, y: 10 }, text: 'Full width line' },

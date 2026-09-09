@@ -59,6 +59,8 @@ export type CenteringOptions = {
     readonly minMarginRatio: number;
 };
 
+export type ContentFilter = 'any' | 'arabic';
+
 /**
  * Configuration options for the main text line mapping function.
  *
@@ -67,6 +69,19 @@ export type CenteringOptions = {
  * and layout element detection.
  */
 export type MapObservationsToTextLinesOptions = CenteringOptions & {
+    /**
+     * Optional content policy applied before layout reconstruction.
+     *
+     * Use `arabic` for Arabic-only corpora to discard pages and observations
+     * without Arabic content. Numeric page/citation fragments are retained on
+     * Arabic pages, while Latin-letter artifacts are rejected. Arabic
+     * honorific signs and ligatures are preserved explicitly, including forms
+     * that do not expand under NFKC and supplementary-plane scalars.
+     *
+     * @default "any"
+     */
+    contentFilter?: ContentFilter;
+
     /**
      * Optional array of horizontal line elements detected in the document.
      * These are typically used to identify sections, headers, footers, or decorative elements.
@@ -175,6 +190,27 @@ export type Observation = {
      * - Dimensions (width, height) of the text area
      */
     bbox: BoundingBox;
+
+    /** Stable source identifier supplied by the OCR producer. */
+    id?: string;
+
+    /** OCR text retained unchanged before any downstream normalization. */
+    rawText?: string;
+
+    /** Source text range in UTF-16 code units when the OCR producer provides one. */
+    sourceRange?: {
+        length: number;
+        location: number;
+        unit: 'utf16';
+    };
+
+    /**
+     * Flattened leaf observations that contributed to a merged line or
+     * paragraph. This is populated only when an input opts into provenance by
+     * supplying an ID or existing source fragments, preserving legacy output
+     * for callers that provide only text and geometry.
+     */
+    sourceFragments?: Observation[];
 
     /**
      * The recognized text content of the observation.
