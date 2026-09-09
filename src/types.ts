@@ -59,6 +59,8 @@ export type CenteringOptions = {
     readonly minMarginRatio: number;
 };
 
+export type ContentFilter = 'any' | 'arabic';
+
 /**
  * Configuration options for the main text line mapping function.
  *
@@ -78,7 +80,7 @@ export type MapObservationsToTextLinesOptions = CenteringOptions & {
      *
      * @default "any"
      */
-    contentFilter?: 'any' | 'arabic';
+    contentFilter?: ContentFilter;
 
     /**
      * Optional array of horizontal line elements detected in the document.

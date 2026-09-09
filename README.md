@@ -242,10 +242,6 @@ Preprocesses observations by filtering noise, flipping coordinates for RTL text,
 
 Filters out horizontal lines that are contained within any of the provided rectangles so that boundary detection ignores headings and callouts.
 
-#### `getLastHorizontalLineY(rectangles: BoundingBox[], horizontalLines: BoundingBox[], pixelTolerance?: number): number | undefined`
-
-Returns the lowest horizontal separator that is not covered by any rectangles, helping footnote detection routines understand where the body text ends.
-
 #### `isObservationCentered(bbox: BoundingBox, imageWidth: number, options: CenteringOptions): boolean`
 
 Determines if an observation is centered with sufficient whitespace on both sides using DPI-relative tolerances.

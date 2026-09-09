@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test';
 
 import {
     containsArabicHonorific,
+    filterNoisyObservations,
     filterObservationsByContent,
     mapOcrResultToRTLObservations,
     normalizeObservationsX,
@@ -22,6 +23,41 @@ const honorificInventory = [
 
 describe('normalization', () => {
     describe('filterObservationsByContent', () => {
+        it('uses any content by default and applies Arabic filtering only when requested', () => {
+            const observations = [
+                { bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'Latin text' },
+                { bbox: { height: 20, width: 100, x: 10, y: 40 }, text: 'نص عربي' },
+            ];
+
+            expect(filterNoisyObservations(observations[0])).toBeTrue();
+            expect(filterObservationsByContent(observations)).toEqual(observations);
+            expect(filterObservationsByContent(observations, 'any')).toEqual(observations);
+            expect(filterObservationsByContent(observations, 'arabic').map((observation) => observation.text)).toEqual([
+                'نص عربي',
+            ]);
+        });
+
+        it('rejects missing text at the noise predicate', () => {
+            const missingText = {
+                bbox: { height: 20, width: 100, x: 10, y: 10 },
+            } as Parameters<typeof filterNoisyObservations>[0];
+
+            expect(filterNoisyObservations(missingText)).toBeFalse();
+            expect(filterObservationsByContent([missingText])).toEqual([]);
+        });
+
+        it('keeps a standalone numeric fragment only beside Arabic content', () => {
+            const arabicObservation = { bbox: { height: 20, width: 100, x: 10, y: 100 }, text: 'عنوان عربي' };
+            const numericObservation = { bbox: { height: 20, width: 40, x: 200, y: 100 }, text: '٣' };
+
+            expect(filterObservationsByContent([numericObservation], 'arabic')).toEqual([]);
+            expect(
+                filterObservationsByContent([arabicObservation, numericObservation], 'arabic').map(
+                    (observation) => observation.text,
+                ),
+            ).toEqual(['عنوان عربي', '٣']);
+        });
+
         it('keeps compact Arabic reference labels but rejects symbol-heavy ornament OCR', () => {
             const observations = [
                 { bbox: { height: 20, width: 100, x: 10, y: 10 }, text: 'نص عربي مفيد' },

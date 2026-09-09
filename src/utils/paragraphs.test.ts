@@ -232,15 +232,16 @@ describe('paragraphs', () => {
         it('should ignore decorative header rules when they do not separate body text', () => {
             const actual = mapObservationsToTextLines(
                 [
-                    { bbox: { height: 44, width: 220, x: 500, y: 80 }, text: 'الدر النضيد' },
-                    { bbox: { height: 56, width: 700, x: 100, y: 164 }, text: 'الحكمة والعقل' },
-                    { bbox: { height: 58, width: 700, x: 100, y: 225 }, text: 'هذا سطر آخر من المتن' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 100 }, text: 'متن أول' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 150 }, text: 'متن ثان' },
+                    { bbox: { height: 30, width: 220, x: 480, y: 210 }, text: 'عنوان بين خطين' },
+                    { bbox: { height: 20, width: 700, x: 0, y: 320 }, text: 'المتن التالي' },
                 ],
                 defaultDpi,
                 {
                     horizontalLines: [
-                        { height: 5, width: 320, x: 313, y: 102 },
-                        { height: 2, width: 321, x: 312, y: 109 },
+                        { height: 5, width: 320, x: 313, y: 200 },
+                        { height: 2, width: 320, x: 313, y: 260 },
                     ],
                 },
             );

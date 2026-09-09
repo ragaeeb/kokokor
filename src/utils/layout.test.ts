@@ -4,7 +4,6 @@ import {
     analyzeLineSpacing,
     computeAdaptiveLineHeightFactor,
     filterHorizontalLinesOutsideRectangles,
-    getLastHorizontalLineY,
     isBoundingBoxContained,
     isObservationCentered,
     mapMatrixToBoundingBox,
@@ -211,78 +210,6 @@ describe('layout', () => {
 
             expect(result1).toEqual([]);
             expect(result2).toEqual([]);
-        });
-    });
-
-    describe('getLastHorizontalLineY', () => {
-        it('should return y-coordinate of last horizontal line outside rectangles', () => {
-            const rectangles = [{ height: 100, width: 200, x: 100, y: 100 }];
-            const horizontalLines = [
-                { height: 1, width: 800, x: 0, y: 50 },
-                { height: 2, width: 100, x: 120, y: 150 }, // inside rectangle
-                { height: 1, width: 800, x: 0, y: 300 },
-                { height: 1, width: 800, x: 0, y: 400 },
-            ];
-
-            const result = getLastHorizontalLineY(rectangles, horizontalLines);
-
-            expect(result).toBe(400);
-        });
-
-        it('should filter out artifacts that are very low y-coordinates', () => {
-            const result = getLastHorizontalLineY(
-                [],
-                [
-                    {
-                        height: 5,
-                        width: 1221,
-                        x: 2463,
-                        y: 31,
-                    },
-                    {
-                        height: 10,
-                        width: 1227,
-                        x: 2460,
-                        y: 4,
-                    },
-                ],
-            );
-
-            expect(result).toEqual(31);
-        });
-
-        it('should return undefined when no horizontal lines exist', () => {
-            const rectangles = [{ height: 100, width: 200, x: 100, y: 100 }];
-            const horizontalLines = [];
-
-            const result = getLastHorizontalLineY(rectangles, horizontalLines);
-
-            expect(result).toBeUndefined();
-        });
-
-        it('should return undefined when all lines are contained within rectangles', () => {
-            const rectangles = [{ height: 1000, width: 1000, x: 0, y: 0 }];
-            const horizontalLines = [
-                { height: 2, width: 200, x: 100, y: 100 },
-                { height: 2, width: 200, x: 100, y: 200 },
-            ];
-
-            const result = getLastHorizontalLineY(rectangles, horizontalLines);
-
-            expect(result).toBeUndefined();
-        });
-
-        it('should use all horizontal lines when no rectangles provided', () => {
-            const rectangles = [];
-            const horizontalLines = [
-                { height: 1, width: 800, x: 0, y: 50 },
-                { height: 1, width: 800, x: 0, y: 300 },
-                { height: 1, width: 800, x: 0, y: 200 },
-            ];
-
-            const result = getLastHorizontalLineY(rectangles, horizontalLines);
-
-            expect(result).toBe(200); // last item in array
         });
     });
 

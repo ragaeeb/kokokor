@@ -2,10 +2,11 @@ import { readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { reconstructParagraphs } from '../src/index';
 import type { BoundingBox, Observation } from '../src/types';
+import { filterObservationsByContent } from '../src/utils/normalization';
 
 type OcrPage = {
     height: number;
-    observations: (Observation & { confidence?: number })[];
+    observations: (Observation & { confidence?: unknown })[];
     page: number;
     width: number;
 };
@@ -48,6 +49,10 @@ const isArabicLetter = (character: string) => /\p{Letter}/u.test(character) && /
 
 const countArabicLetters = (text: string) => [...text.normalize('NFKC')].filter(isArabicLetter).length;
 
+// This records finite confidence availability; it intentionally applies no OCR quality threshold.
+const isFiniteConfidence = (confidence: unknown): confidence is number =>
+    typeof confidence === 'number' && Number.isFinite(confidence);
+
 const numericJsonFiles = (await readdir(ocrDir))
     .filter((file) => /^\d+\.json$/.test(file))
     .toSorted((a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10));
@@ -63,12 +68,12 @@ const books: Record<string, Record<string, number>> = {};
 
 let totalPages = 0;
 let totalObservations = 0;
-let totalArabicObservations = 0;
+let totalContentObservations = 0;
 let totalLines = 0;
 let totalParagraphs = 0;
 let totalFootnoteLines = 0;
 let totalNonArabicLines = 0;
-let totalLowConfidenceObservations = 0;
+let totalObservationsWithConfidence = 0;
 
 for (const file of numericJsonFiles) {
     const book = Number.parseInt(file, 10);
@@ -77,16 +82,16 @@ for (const file of numericJsonFiles) {
     const skaluByPage = new Map(skalu.pages.map((page) => [page.page, page]));
 
     const bookMetrics = {
-        arabicObservations: 0,
+        contentObservations: 0,
         falsePositiveOnlyPages: 0,
         falsePositiveOutputPages: 0,
         footnoteLines: 0,
         footnotePages: 0,
         lines: 0,
-        lowConfidenceObservations: 0,
         mostlyFootnotePages: 0,
         nonArabicLines: 0,
         observations: 0,
+        observationsWithConfidence: 0,
         overSplitPages: 0,
         pages: ocr.pages.length,
         paragraphs: 0,
@@ -113,9 +118,9 @@ for (const file of numericJsonFiles) {
             { line: { contentFilter: 'arabic' } },
         );
 
-        const arabicObservations = page.observations.filter((observation) => countArabicLetters(observation.text) >= 2);
-        const lowConfidenceObservations = page.observations.filter(
-            (observation) => observation.confidence !== undefined,
+        const contentObservations = filterObservationsByContent(page.observations, 'arabic');
+        const observationsWithConfidence = page.observations.filter((observation) =>
+            isFiniteConfidence(observation.confidence),
         );
         const footnoteLines = result.lines.filter((line) => line.isFootnote);
         const nonArabicLines = result.lines.filter((line) => countArabicLetters(line.text) < 2);
@@ -124,10 +129,10 @@ for (const file of numericJsonFiles) {
         const hasSalutationContext = page.observations.some(
             (observation) =>
                 /[ﷺﷻؐؑؒؓ]/u.test(observation.text) ||
-                (observation.confidence !== undefined && /(?:النبي|رسول|محمد|اللّٰه|الله)/u.test(observation.text)),
+                (isFiniteConfidence(observation.confidence) && /(?:النبي|رسول|محمد|اللّٰه|الله)/u.test(observation.text)),
         );
 
-        if (page.observations.length > 0 && arabicObservations.length === 0) {
+        if (page.observations.length > 0 && contentObservations.length === 0) {
             falsePositiveOnlyPages.push({ book, observations: page.observations.length, page: page.page });
             bookMetrics.falsePositiveOnlyPages++;
             if (result.lines.length > 0) {
@@ -173,15 +178,15 @@ for (const file of numericJsonFiles) {
         if (hasSalutationContext) {
             salutationCandidatePages.push({
                 book,
-                lowConfidenceObservations: lowConfidenceObservations.length,
+                observationsWithConfidence: observationsWithConfidence.length,
                 page: page.page,
             });
             bookMetrics.salutationCandidatePages++;
         }
 
         bookMetrics.observations += page.observations.length;
-        bookMetrics.arabicObservations += arabicObservations.length;
-        bookMetrics.lowConfidenceObservations += lowConfidenceObservations.length;
+        bookMetrics.contentObservations += contentObservations.length;
+        bookMetrics.observationsWithConfidence += observationsWithConfidence.length;
         bookMetrics.lines += result.lines.length;
         bookMetrics.paragraphs += result.paragraphs.length;
         bookMetrics.footnoteLines += footnoteLines.length;
@@ -194,8 +199,8 @@ for (const file of numericJsonFiles) {
     books[String(book)] = bookMetrics;
     totalPages += bookMetrics.pages;
     totalObservations += bookMetrics.observations;
-    totalArabicObservations += bookMetrics.arabicObservations;
-    totalLowConfidenceObservations += bookMetrics.lowConfidenceObservations;
+    totalContentObservations += bookMetrics.contentObservations;
+    totalObservationsWithConfidence += bookMetrics.observationsWithConfidence;
     totalLines += bookMetrics.lines;
     totalParagraphs += bookMetrics.paragraphs;
     totalFootnoteLines += bookMetrics.footnoteLines;
@@ -214,16 +219,16 @@ const report = {
         underSplitPages,
     },
     totals: {
-        arabicObservations: totalArabicObservations,
+        contentObservations: totalContentObservations,
         falsePositiveOnlyPages: falsePositiveOnlyPages.length,
         falsePositiveOutputPages: falsePositiveOutputPages.length,
         footnoteLines: totalFootnoteLines,
         lines: totalLines,
-        lowConfidenceObservations: totalLowConfidenceObservations,
         mostlyFootnotePages: mostlyFootnotePages.length,
         nonArabicLines: totalNonArabicLines,
         nonArabicOutputPages: nonArabicOutputPages.length,
         observations: totalObservations,
+        observationsWithConfidence: totalObservationsWithConfidence,
         overSplitPages: overSplitPages.length,
         pages: totalPages,
         paragraphs: totalParagraphs,

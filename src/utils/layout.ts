@@ -86,31 +86,6 @@ export const filterHorizontalLinesOutsideRectangles = (
 export const filterStructuralRectangles = (rectangles: BoundingBox[], page: { height: number; width: number }) =>
     rectangles.filter((rectangle) => rectangle.height < page.height * 0.9);
 
-/**
- * Finds the y-coordinate of the last horizontal line that's not contained within any rectangle.
- *
- * Used to identify the footer boundary - text below this line is typically footnotes.
- * Filters out horizontal lines that are contained within rectangles before finding the last one.
- *
- * @param rectangles - Array of rectangles to exclude horizontal lines from
- * @param horizontalLines - Array of horizontal lines to consider
- * @param pixelTolerance - Pixel tolerance for containment checking (default: 5)
- * @returns Y-coordinate of the last qualifying horizontal line, or undefined if none found
- */
-export const getLastHorizontalLineY = (
-    rectangles: BoundingBox[],
-    horizontalLines: BoundingBox[],
-    pixelTolerance = 5,
-) => {
-    if (rectangles.length > 0 && horizontalLines.length > 0) {
-        horizontalLines = filterHorizontalLinesOutsideRectangles(rectangles, horizontalLines, pixelTolerance);
-    }
-
-    horizontalLines = horizontalLines.filter((line) => line.y > pixelTolerance); // take out lines that are very close to the top-edge which are probably artifacts
-
-    return horizontalLines.at(-1)?.y;
-};
-
 type FootnoteSeparatorContext = {
     observations: Observation[];
     observationsAreHorizontallyMirrored: boolean;

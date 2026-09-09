@@ -1,4 +1,4 @@
-import type { Observation } from '@/types';
+import type { ContentFilter, Observation } from '@/types';
 
 /**
  * Adjusts x-coordinates of observations for right-to-left (RTL) text processing.
@@ -85,7 +85,7 @@ export const hasArabicText = (text: string, minimumLetterCount = 2) => {
     return false;
 };
 
-export const filterNoisyObservations = (o: Observation, contentFilter: 'any' | 'arabic' = 'any') => {
+export const filterNoisyObservations = (o: Observation) => {
     if (containsArabicHonorific(o.text ?? '')) {
         return true;
     }
@@ -95,7 +95,7 @@ export const filterNoisyObservations = (o: Observation, contentFilter: 'any' | '
     if (!hasMinimumContent) {
         return false;
     }
-    return contentFilter !== 'arabic' || hasArabicText(o.text);
+    return true;
 };
 
 const sharesTextLineVertically = (first: Observation, second: Observation) => {
@@ -128,7 +128,7 @@ const isUsefulNumericFragment = (observation: Observation, arabicObservations: O
  * Applies the requested content policy while retaining credible numeric
  * fragments on pages that otherwise contain Arabic text.
  */
-export const filterObservationsByContent = (observations: Observation[], contentFilter: 'any' | 'arabic' = 'any') => {
+export const filterObservationsByContent = (observations: Observation[], contentFilter: ContentFilter = 'any') => {
     const meaningful = observations.filter((observation) => filterNoisyObservations(observation));
     if (contentFilter !== 'arabic') {
         return meaningful;
